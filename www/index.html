@@ -165,6 +165,7 @@ a.btn{display:block;text-align:center;text-decoration:none}
 <nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
 <div id="sheet" hidden></div>
 <div id="confirm" hidden></div>
+<div id="confirm2" hidden></div>
 <div id="popup" hidden></div>
 <div id="toast" class="toast" hidden></div>
 <script>
@@ -186,10 +187,15 @@ const PERMS = [
   ['expenses','खर्च पाहणे'],
   ['bonus','बोनस पाहणे'],
   ['reports','अहवाल पाहणे'],
-  ['pdf','पासबुक PDF / WhatsApp शेअर करणे']
+  ['pdf','पासबुक PDF / WhatsApp शेअर करणे'],
+  ['polls','मतदान पाहणे आणि मत देणे'],
+  ['notices','सूचना पाहणे'],
+  ['collect','संकलन नोंदवणे: बचत, हप्ता, व्याज (admin सारखा लेखन अधिकार)'],
+  ['loanwrite','नवीन कर्ज नोंदवणे (admin सारखा लेखन अधिकार)']
 ];
-const DEFAULT_P = Object.fromEntries(PERMS.map(([k]) => [k, true]));
-const DEF_SET = {startMonth:'', shares:[{from:'2000-01', amt:1000}], rate:2, slabs:[[0,2000],[10000,2500],[20000,3000]]};
+const WRITE_PERMS = ['collect', 'loanwrite'];
+const DEFAULT_P = Object.fromEntries(PERMS.map(([k]) => [k, !WRITE_PERMS.includes(k)]));
+const DEF_SET = {startMonth:'', shares:[{from:'2000-01', amt:1000}], rate:2, hapDay:16, slabs:[[0,2000],[10000,2500],[20000,3000]]};
 const svg = p => `<svg viewBox="0 0 24 24">${p}</svg>`;
 const ICON = {
   home: svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
@@ -217,7 +223,7 @@ const S = {
   tab:'home', sel:null, pbFy:'all', ready:false, db:null, dl:null, err:null,
   type:'inst', q:'', openMonth:null, statusMonth:null, sfilter:'all', prefill:null, confirm:null, confirmDel:null,
   rp:{period:'fy', fy:null, month:today().slice(0,7), from:'', to:'', kind:'summary', acc:''},
-  expFy:'cur', popShown:false, lastPend:0, C:null, prevTab:null, loanType:'inst', en:{}, ln:{}, edit:null, fromReq:null
+  expFy:'cur', popShown:false, lastPend:0, C:null, prevTab:null, loanType:'inst', en:{}, ln:{}, edit:null, fromReq:null, polls:[], votes:[], notices:[], pwreqs:[], confirm2:null, locked:false, view2:null
 };
 
 /* ================= helpers ================= */
@@ -266,6 +272,14 @@ const haptaFor = (out, peak) => out <= 0 ? 0 : Math.min(out, slabFor(Math.max(ou
 /* permissions */
 const permsOf = uid => Object.assign({}, DEFAULT_P, (S.perms[uid] && S.perms[uid].p) || {});
 const can = k => !!S.me && (S.admin || permsOf(S.me.uid)[k] !== false);
+const canCollect = () => !!S.me && (S.admin || permsOf(S.me.uid).collect === true);
+const canLoanW = () => !!S.me && (S.admin || permsOf(S.me.uid).loanwrite === true);
+const exitTx = acc => S.tx.find(t => t.type === 'exit' && t.acc === acc);
+const exitDate = acc => { const t = exitTx(acc); return t ? t.date : ''; };
+const isExited = acc => !!exitTx(acc);
+const activeMembers = () => S.members.filter(m => !isExited(m.acc)).sort((a,b) => a.acc - b.acc);
+const byName = u => { const m = S.members.find(x => uidFor(x.acc) === u); return m ? m.name : u; };
+const hapDay = () => { const d = +cfg().hapDay; return d >= 1 && d <= 31 ? d : 16; };
 
 /* ================= events & totals ================= */
 function addMonthsEntries(upTo){
@@ -280,11 +294,12 @@ function addMonthsEntries(upTo){
 function eventsAll(){
   const ev = [], plans = {}; S.invest.forEach(p => plans[p.id] = p);
   S.tx.forEach(t => {
-    const b = {date:t.date, ts:t.ts || 0, acc:t.acc, note:t.note || '', id:t.id, col:'tx', mode:t.mode};
+    const b = {date:t.date, ts:t.ts || 0, acc:t.acc, note:t.note || '', id:t.id, col:'tx', mode:t.mode, by:t.by};
     if (t.type === 'inst'){ const c = t.cash ?? t.amt; ev.push({...b, kind:'inst', amt:t.amt, cash:c, adj:c - t.amt}); }
     else if (t.type === 'loan') ev.push({...b, kind:'loan', amt:t.amt, rate:t.rate, cash:-t.amt, adj:0});
     else if (t.type === 'repay'){ const i = t.int || 0, c = t.cash ?? (t.amt + i); ev.push({...b, kind:'repay', amt:t.amt, int:i, cash:c, adj:t.adj != null ? t.adj : c - (t.amt + i)}); }
     else if (t.type === 'bonus') ev.push({...b, kind:'bonus', amt:t.amt, reason:t.reason || '', grp:t.grp, cash:-t.amt, adj:0});
+    else if (t.type === 'exit') ev.push({...b, kind:'exit', amt:t.amt, refund:t.refund || 0, loanSet:t.loanSet || 0, cr:t.cr || 0, cash:-t.amt, adj:0});
   });
   S.exp.forEach(e => ev.push({date:e.date, ts:e.ts || 0, kind:'exp', amt:e.amt, cat:e.cat, note:e.note || '', cash:-e.amt, adj:0, id:e.id, col:'exp'}));
   addMonthsEntries(today()).forEach(e => ev.push({date:e.date, ts:0, kind:'invest', amt:e.amt, name:e.plan.name, cat:e.plan.cat, planId:e.plan.id, cash:-e.amt, adj:0}));
@@ -294,10 +309,10 @@ function eventsAll(){
 }
 function compute(){
   const ev = eventsAll(), per = {}, months = {};
-  const T = {inst:0, loan:0, prin:0, int:0, bonus:0, exp:0, inv:0, invint:0, invret:0, adj:0};
-  const mk = acc => ({acc, inst:0, loan:0, prin:0, int:0, bonus:0, out:0, credit:0, rate:cfg().rate});
+  const T = {inst:0, loan:0, prin:0, int:0, bonus:0, exp:0, inv:0, invint:0, invret:0, adj:0, exit:0, settled:0};
+  const mk = acc => ({acc, inst:0, loan:0, prin:0, int:0, bonus:0, out:0, credit:0, settled:0, refund:0, rate:cfg().rate});
   S.members.forEach(m => per[m.acc] = mk(m.acc));
-  const mo = k => months[k] || (months[k] = {k, cashNet:0, inst:0, loan:0, prin:0, int:0, bonus:0, exp:0, inv:0, invint:0, invret:0, adj:0, n:0});
+  const mo = k => months[k] || (months[k] = {k, cashNet:0, inst:0, loan:0, prin:0, int:0, bonus:0, exp:0, inv:0, invint:0, invret:0, adj:0, exit:0, settled:0, n:0});
   let cash = 0;
   ev.forEach(e => {
     const m = mo(e.date.slice(0,7)); cash += e.cash; m.cashNet += e.cash;
@@ -306,15 +321,16 @@ function compute(){
     else if (e.kind === 'loan'){ p.loan += e.amt; if (e.rate) p.rate = e.rate; T.loan += e.amt; m.loan += e.amt; }
     else if (e.kind === 'repay'){ p.prin += e.amt; p.int += e.int; p.credit += e.adj; T.prin += e.amt; T.int += e.int; m.prin += e.amt; m.int += e.int; m.adj += e.adj; T.adj += e.adj; }
     else if (e.kind === 'bonus'){ p.bonus += e.amt; T.bonus += e.amt; m.bonus += e.amt; }
+    else if (e.kind === 'exit'){ p.settled += e.loanSet; p.refund += e.refund; p.credit -= e.cr; T.settled += e.loanSet; m.settled += e.loanSet; T.exit += e.amt; m.exit += e.amt; }
     else if (e.kind === 'exp'){ T.exp += e.amt; m.exp += e.amt; }
     else if (e.kind === 'invest'){ T.inv += e.amt; m.inv += e.amt; }
     else if (e.kind === 'invint'){ T.invint += e.amt; m.invint += e.amt; }
     else if (e.kind === 'invret'){ T.invret += e.amt; m.invret += e.amt; }
   });
-  Object.values(per).forEach(p => p.out = p.loan - p.prin);
+  Object.values(per).forEach(p => p.out = p.loan - p.prin - p.settled);
   const keys = Object.keys(months).sort(); let c2 = 0, o2 = 0;
-  keys.forEach(k => { const m = months[k]; m.delta = m.cashNet; c2 += m.delta; o2 += m.loan - m.prin; m.cash = c2; m.out = o2; });
-  return {ev, per, months, keys, T, cash, out:T.loan - T.prin, credit:sumBy(Object.values(per), p => p.credit), investNet:T.inv - T.invret};
+  keys.forEach(k => { const m = months[k]; m.delta = m.cashNet; c2 += m.delta; o2 += m.loan - m.prin - m.settled; m.cash = c2; m.out = o2; });
+  return {ev, per, months, keys, T, cash, out:T.loan - T.prin - T.settled, credit:sumBy(Object.values(per), p => p.credit), investNet:T.inv - T.invret};
 }
 
 /* ================= month status with arrears (carry-forward) ================= */
@@ -322,9 +338,10 @@ function startKey(){ const c = cfg().startMonth; if (c) return c; const ks = S.t
 function aggTx(){
   const g = {};
   S.tx.forEach(t => {
-    const a = g[t.acc] || (g[t.acc] = {}), k = t.date.slice(0,7), m = a[k] || (a[k] = {inst:0, prin:0, int:0, loan:0, adj:0, rate:0, nRep:0});
+    const a = g[t.acc] || (g[t.acc] = {}), k = t.date.slice(0,7), m = a[k] || (a[k] = {inst:0, prin:0, int:0, loan:0, loanEarly:0, rateEarly:0, set:0, adj:0, rate:0, nRep:0});
     if (t.type === 'inst'){ m.inst += t.amt; m.adj += (t.cash ?? t.amt) - t.amt; }
-    else if (t.type === 'loan'){ m.loan += t.amt; if (t.rate) m.rate = t.rate; }
+    else if (t.type === 'loan'){ m.loan += t.amt; if (t.rate) m.rate = t.rate; if (+t.date.slice(8,10) <= hapDay()){ m.loanEarly += t.amt; if (t.rate) m.rateEarly = t.rate; } }
+    else if (t.type === 'exit'){ m.set += (t.loanSet || 0); }
     else if (t.type === 'repay'){ m.prin += t.amt; m.int += (t.int || 0); m.nRep++; m.adj += t.adj != null ? t.adj : (t.cash ?? (t.amt + (t.int || 0))) - (t.amt + (t.int || 0)); }
   });
   return g;
@@ -332,23 +349,23 @@ function aggTx(){
 function statusFor(k){
   const g = aggTx(), s0 = startKey(), keys = monthKeys(s0 <= k ? s0 : k, k);
   return S.members.slice().sort((a,b) => a.acc - b.acc).map(m => {
-    const a = g[m.acc] || {}; let out = 0, peak = 0, sC = 0, hC = 0, credit = 0, rate = cfg().rate, r = null; const j = m.joined || '';
+    const a = g[m.acc] || {}; let out = 0, peak = 0, sC = 0, hC = 0, credit = 0, rate = cfg().rate, r = null; const j = m.joined || '', ex = exitDate(m.acc).slice(0,7);
     for (const key of keys){
-      const x = a[key] || {inst:0, prin:0, int:0, loan:0, adj:0, rate:0, nRep:0};
+      const x = a[key] || {inst:0, prin:0, int:0, loan:0, loanEarly:0, rateEarly:0, set:0, adj:0, rate:0, nRep:0};
       if (out > 0) peak = Math.max(peak, out);
-      const sDue = (j && key < j) ? 0 : shareFor(key), sTot = sDue + sC;
+      const sDue = ((j && key < j) || (ex && key > ex)) ? 0 : shareFor(key), sTot = sDue + sC;
       const slab = out > 0 ? slabFor(peak) : 0, hDue = out > 0 ? Math.min(out, slab) : 0, hTot = out > 0 ? Math.min(out, hDue + hC) : 0;
-      const iDue = Math.round(out * rate / 100);
-      const outA = out + x.loan, pkA = Math.max(peak, outA), outE = outA - x.prin, rateE = x.rate || rate;
-      if (key === k) r = {m, sDue, sArr:sC, sTot, sPaid:x.inst, hDue, hArr:out > 0 ? hC : 0, hTot, hPaid:x.prin, iDue, iPaid:x.int, nRep:x.nRep, out, peak, rate, rateEnd:rateE, loanNow:x.loan, credit:credit + x.adj, slab, outEnd:outE, peakEnd:outE > 0 ? pkA : 0};
+      const iRate = x.loanEarly > 0 && x.rateEarly ? x.rateEarly : rate, iBase = out + x.loanEarly, iDue = Math.round(iBase * iRate / 100);
+      const outA = out + x.loan, pkA = Math.max(peak, outA), outE = outA - x.prin - x.set, rateE = x.rate || rate;
+      if (key === k) r = {m, sDue, sArr:sC, sTot, sPaid:x.inst, hDue, hArr:out > 0 ? hC : 0, hTot, hPaid:x.prin, iDue, iBase, iRate, iPaid:x.int, nRep:x.nRep, out, peak, rate, rateEnd:rateE, loanNow:x.loan, credit:credit + x.adj, slab, outEnd:outE, peakEnd:outE > 0 ? pkA : 0};
       sC = sTot - x.inst; hC = Math.max(0, hTot - x.prin);
       out = outE; peak = outE > 0 ? pkA : 0; rate = rateE; credit += x.adj;
     }
     r.sRem = Math.max(0, r.sTot - r.sPaid); r.hRem = Math.max(0, r.hTot - r.hPaid); r.iTot = r.iDue; r.iArr = 0; r.iRem = Math.max(0, r.iDue - r.iPaid);
-    r.sh = r.sTot <= 0 || r.sPaid >= r.sTot ? 'paid' : r.sPaid > 0 ? 'part' : 'pend';
+    r.sh = r.sTot <= 0 || r.sPaid >= r.sTot ? 'paid' : r.sPaid > 0 ? 'part' : 'pend'; r.exited = !!ex && k > ex; r.exitedNow = !!ex && k === ex;
     r.hs = (r.hTot <= 0 && r.nRep === 0 && r.iDue <= 0) ? 'none' : (r.hRem <= 0 && r.iRem <= 0) ? 'paid' : (r.hPaid > 0 || r.iPaid > 0 || r.nRep > 0) ? 'part' : 'pend';
     return r;
-  });
+  }).filter(r => !r.exited);
 }
 function loanInfo(acc){
   const r = statusFor(today().slice(0,7)).find(x => x.m.acc === acc);
@@ -376,6 +393,7 @@ function evLabel(e){
   if (e.kind === 'loan') return 'कर्ज दिले' + (e.rate ? ' (' + e.rate + '%)' : '');
   if (e.kind === 'repay') return 'हप्ता: मुद्दल ' + inr(e.amt) + ' + व्याज ' + inr(e.int) + (e.adj > 0 ? ' (जास्तीचे ' + inr(e.adj) + ' क्रेडिटमध्ये)' : e.adj < 0 ? ' (क्रेडिटमधून ' + inr(-e.adj) + ' वापरले)' : '');
   if (e.kind === 'bonus') return 'बोनस' + (e.reason ? ' · ' + e.reason : '');
+  if (e.kind === 'exit') return 'सभासद बाहेर: अंतिम हिशेब (बचत परत ' + inr(e.refund) + ', कर्ज वजा ' + inr(e.loanSet) + (e.cr ? ', क्रेडिट ' + inr(e.cr) : '') + ') = ' + inr(e.amt);
   if (e.kind === 'exp') return 'खर्च · ' + (e.cat || '') + (e.note ? ' · ' + e.note : '');
   if (e.kind === 'invest') return 'गुंतवणूक · ' + e.name;
   if (e.kind === 'invint') return 'गुंतवणूक व्याज · ' + e.name;
@@ -397,10 +415,10 @@ function buildReport(C){
     rep.cols = [['तपशील', 3, 'l'], ['रक्कम', 1.2, 'r']];
     rep.rows = [['सुरुवातीची शिल्लक', inr(openCash)], ['+ मासिक बचत जमा', inr(inst)], ['+ मुद्दल वसुली', inr(prin)], ['+ कर्जावरील व्याज', inr(int)],
       ['+ गुंतवणुकीवरील व्याज', inr(invint)], ['+ गुंतवणूक परत मिळाली', inr(invret)], ['+/− क्रेडिट (जास्तीची / वापरलेली रक्कम)', inr(adj)],
-      ['− कर्ज दिले', inr(loan)], ['− खर्च', inr(exp)], ['− बोनस वाटप', inr(bonus)], ['− नवीन गुंतवणूक', inr(inv)]];
+      ['− कर्ज दिले', inr(loan)], ['− खर्च', inr(exp)], ['− बोनस वाटप', inr(bonus)], ['− नवीन गुंतवणूक', inr(inv)], ['− सभासद अंतिम हिशेब (बाहेर पडले)', inr(S_(E,'exit'))]];
     rep.foot = ['शेवटची शिल्लक', inr(close)];
-    rep.sum = [['येणे कर्ज (अखेर)', inr(S_(up,'loan') - S_(up,'repay'))], ['एकूण बचत (अखेर)', inr(S_(up,'inst'))],
-      ['चालू गुंतवणूक (अखेर)', inr(S_(up,'invest') - S_(up,'invret'))], ['सभासदांचे क्रेडिट (अखेर)', inr(sumBy(up, e => e.adj))]];
+    rep.sum = [['येणे कर्ज (अखेर)', inr(S_(up,'loan') - S_(up,'repay') - sumBy(up.filter(e => e.kind === 'exit'), e => e.loanSet))], ['एकूण बचत (अखेर)', inr(S_(up,'inst'))],
+      ['चालू गुंतवणूक (अखेर)', inr(S_(up,'invest') - S_(up,'invret'))], ['सभासदांचे क्रेडिट (अखेर)', inr(sumBy(up, e => e.adj - (e.cr || 0)))]];
   } else if (kind === 'monthwise'){
     rep.title = 'महिनावार अहवाल';
     const g = {}; E.forEach(e => { const k = e.date.slice(0,7), m = g[k] || (g[k] = {inst:0, loan:0, prin:0, int:0, invint:0, exp:0, bonus:0, net:0}); m.net += e.cash;
@@ -421,7 +439,7 @@ function buildReport(C){
     rep.cols = [['खाते',.9,'l'],['नाव',3.4,'l'],['बचत',1.2,'r'],['कर्ज',1.2,'r'],['मुद्दल',1.2,'r'],['व्याज',1,'r'],['बोनस',1,'r'],['येणे कर्ज',1.3,'r']];
     const t = [0,0,0,0,0,0];
     rep.rows = mem.map(m => { const x = E.filter(e => e.acc === m.acc), u = up.filter(e => e.acc === m.acc);
-      const v = [S_(x,'inst'), S_(x,'loan'), S_(x,'repay'), sumBy(x.filter(e => e.kind === 'repay'), e => e.int), S_(x,'bonus'), S_(u,'loan') - S_(u,'repay')]; v.forEach((n,i) => t[i] += n);
+      const v = [S_(x,'inst'), S_(x,'loan'), S_(x,'repay'), sumBy(x.filter(e => e.kind === 'repay'), e => e.int), S_(x,'bonus'), S_(u,'loan') - S_(u,'repay') - sumBy(u.filter(e => e.kind === 'exit'), e => e.loanSet)]; v.forEach((n,i) => t[i] += n);
       return [m.acc, m.name, ...v.map(inr)]; });
     rep.foot = ['', 'एकूण', ...t.map(inr)];
   } else if (kind === 'share'){
@@ -436,7 +454,7 @@ function buildReport(C){
     const L = EA.filter(e => e.kind === 'loan');
     rep.rows = L.map(e => [dlabel(e.date), e.acc, nameOf(e.acc), inr(e.amt), e.rate ? e.rate + '%' : '']);
     rep.foot = ['एकूण', '', '', inr(sumBy(L, e => e.amt)), ''];
-    rep.sum = [['येणे कर्ज (अखेर)', inr(S_(up,'loan') - S_(up,'repay'))], ['कर्ज घेतलेले सभासद', String(new Set(L.map(e => e.acc)).size)]];
+    rep.sum = [['येणे कर्ज (अखेर)', inr(S_(up,'loan') - S_(up,'repay') - sumBy(up.filter(e => e.kind === 'exit'), e => e.loanSet))], ['कर्ज घेतलेले सभासद', String(new Set(L.map(e => e.acc)).size)]];
   } else if (kind === 'interest'){
     rep.title = 'व्याज अहवाल';
     rep.cols = [['खाते',.9,'l'],['नाव',3.8,'l'],['कर्जावरील व्याज',2,'r']];
@@ -467,10 +485,10 @@ function buildReport(C){
 function pbReport(acc, fy){
   const C = S.C, m = S.members.find(x => x.acc === acc), [from, to] = fy === 'all' ? ['0000-01-01', '9999-12-31'] : fyRange(+fy);
   const label = fy === 'all' ? 'सर्व कालावधी' : 'आर्थिक वर्ष ' + fyLabel(+fy);
-  const mine = C.ev.filter(e => e.acc === acc && ['inst','loan','repay','bonus'].includes(e.kind));
+  const mine = C.ev.filter(e => e.acc === acc && ['inst','loan','repay','bonus','exit'].includes(e.kind));
   let out = 0, rows = [], t = [0,0,0,0,0];
   mine.forEach(e => {
-    if (e.kind === 'loan') out += e.amt; else if (e.kind === 'repay') out -= e.amt;
+    if (e.kind === 'loan') out += e.amt; else if (e.kind === 'repay') out -= e.amt; else if (e.kind === 'exit') out -= e.loanSet;
     if (e.date < from || e.date > to) return;
     const r = [dlabel(e.date), evLabel(e), '', '', '', '', '', inr(out)];
     if (e.kind === 'inst'){ r[2] = inr(e.amt); t[0] += e.amt; }
@@ -596,14 +614,14 @@ const F = {
   sel:(id,label,opts,v,x='') => `<label for="${id}">${label}</label><select id="${id}" data-keep ${x}>${opts.map(([a,b]) => `<option value="${esc(a)}" ${String(a) === String(v) ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`,
   area:(id,label,v='') => `<label for="${id}">${label}</label><textarea id="${id}" data-keep rows="3">${esc(v)}</textarea>`
 };
-const memberOpts = () => [...S.members].sort((a,b) => a.acc - b.acc).map(m => [m.acc, m.acc + ' · ' + m.name]);
+const memberOpts = activeOnly => [...S.members].filter(m => !activeOnly || !isExited(m.acc)).sort((a,b) => a.acc - b.acc).map(m => [m.acc, m.acc + ' · ' + m.name + (isExited(m.acc) ? ' (बाहेर)' : '')]);
 const empty = (t, s) => `<div class="empty card" style="margin-top:16px"><b>${t}</b>${s || ''}</div>`;
 const back = (to = 'more') => `<button class="back" data-act="tab" data-t="${to}">← मागे</button>`;
 const pendingCount = () => allRequests().filter(r => r.status === 'pending').length;
 
 /* one ledger row (society view) */
 function evRow(e, o = {}){
-  const names = {inst:'मासिक बचत', loan:'कर्ज दिले', repay:'हप्ता भरला', bonus:'बोनस दिला', exp:'खर्च · ' + (e.cat || ''), invest:'गुंतवणूक · ' + (e.name || ''), invint:'गुंतवणूक व्याज · ' + (e.name || ''), invret:'गुंतवणूक परत · ' + (e.name || '')};
+  const names = {inst:'मासिक बचत', loan:'कर्ज दिले', repay:'हप्ता भरला', bonus:'बोनस दिला', exp:'खर्च · ' + (e.cat || ''), invest:'गुंतवणूक · ' + (e.name || ''), invint:'गुंतवणूक व्याज · ' + (e.name || ''), invret:'गुंतवणूक परत · ' + (e.name || ''), exit:'सभासद अंतिम हिशेब'};
   const who = e.acc != null && !o.noName ? esc(nameOf(e.acc)) + ' · ' : '';
   const pos = e.cash > 0;
   let sub = dlabel(e.date) + (e.mode ? ' · ' + esc(e.mode) : '');
@@ -612,6 +630,7 @@ function evRow(e, o = {}){
   if (e.adj < 0) sub += ' · क्रेडिटमधून ' + inr(-e.adj) + ' वापरले';
   if (e.reason) sub += ' · ' + esc(e.reason);
   if (e.note) sub += ' · ' + esc(e.note);
+  if (e.by && e.by !== 'admin') sub += ' · नोंद: ' + esc(byName(e.by));
   const key = e.col + ':' + e.id;
   const ed = o.admin && e.col && e.id ? `<button class="btn sm alt" data-act="edit" data-c="${e.col}" data-id="${esc(e.id)}" aria-label="नोंद संपादन">संपादन</button>` : '';
   const del = o.admin && e.col && e.id ? (S.confirmDel === key
@@ -645,6 +664,7 @@ function viewHome(C){
   const recent = [...C.ev.filter(e => e.col)].reverse().slice(0,8), n = S.members.length || 1, pend = S.admin ? pendingCount() : 0;
   return `
   ${pend ? `<button class="item card" style="margin-top:16px;background:var(--bad-soft);border-color:var(--bad)" data-act="tab" data-t="loans"><div class="mid"><b class="due">${pend} नवीन कर्ज अर्ज</b><small>पाहण्यासाठी आणि मंजूर करण्यासाठी दाबा</small></div><span class="pill bad">पाहा</span></button>` : ''}
+  ${homeExtras()}
   <section class="hero"><div class="lbl">सोसायटीची शिल्लक रक्कम (हातात)</div><div class="big num">${inr(C.cash)}</div>
     <div class="row">
       <div class="cell"><span>एकूण बचत जमा</span><b class="num">${inr(C.T.inst)}</b></div>
@@ -677,7 +697,7 @@ function viewStatus(C){
   const bad = r => r.sh !== 'paid' || r.hs === 'pend' || r.hs === 'part';
   const shown = rows.filter(r => f === 'all' || (f === 'pending' ? bad(r) : !bad(r)));
   const SH = {paid:['good','भरले'], part:['gold','अर्धवट'], pend:['bad','बाकी']};
-  const qk = (r, t) => S.admin ? `<button class="qk" data-act="quick" data-acc="${r.m.acc}">संकलन करा</button>` : '';
+  const qk = (r, t) => canCollect() ? `<button class="qk" data-act="quick" data-acc="${r.m.acc}">संकलन करा</button>` : '';
   return `<h2 style="margin-top:20px">भरणा स्थिती</h2>
   ${F.sel('st-month', 'महिना निवडा', monthOptions(C).map(x => [x, mlabel(x)]), k).replace('data-keep','')}
   <div class="sum2">
@@ -704,11 +724,12 @@ function reqCard(r){
     ${S.admin && r.status === 'approved' ? `<div class="row-b" style="margin-top:10px"><button class="btn sm" data-act="req-give" data-id="${esc(r.id)}">कर्ज द्या (नोंद करा)</button></div>` : ''}</div>`;
 }
 function loanForm(){
-  const l = S.ln, acc = l.acc || (S.members[0] || {}).acc;
-  if (!S.members.length) return '';
+  const l = S.ln, acc = l.acc || (activeMembers()[0] || {}).acc;
+  if (!activeMembers().length) return '';
   return `<h2>नवीन कर्ज द्या</h2><div class="card">${S.fromReq ? '<div class="note" style="margin-top:0">मंजूर अर्जातून कर्ज देत आहात.</div>' : ''}
-    ${F.sel('ln-acc', 'सभासद', memberOpts(), acc)}${F.date('ln-date', 'तारीख', today())}${F.num('ln-amt', 'कर्ज रक्कम (₹)', l.amt || '')}
+    ${F.sel('ln-acc', 'सभासद', memberOpts(true), acc)}${F.date('ln-date', 'तारीख', today())}${F.num('ln-amt', 'कर्ज रक्कम (₹)', l.amt || '')}
     ${F.num('ln-rate', 'व्याजदर (% प्रति महिना): कर्ज देताना ठरवा', l.rate || cfg().rate)}
+    <div class="hint">हप्त्याची तारीख ${hapDay()}: या तारखेपर्यंत (${hapDay()} सह) घेतलेल्या कर्जाचे त्याच महिन्याच्या हप्त्यात १ महिन्याचे व्याज लागते. त्यानंतरच्या कर्जाचे व्याज पुढील महिन्याच्या हप्त्यापासून.</div>
     <div class="g2">${F.sel('ln-mode', 'पद्धत', MODES.map(x => [x, x]), 'रोख')}${F.txt('ln-note', 'टीप (ऐच्छिक)', '', 'maxlength="60"')}</div>
     <button class="btn" data-act="save-loan">पुढे: तपासा</button></div>`;
 }
@@ -717,9 +738,9 @@ function viewLoans(C){
   let h = `<h2 style="margin-top:20px">कर्ज</h2><div class="sum2" style="margin-top:0">
     <div class="card"><b>येणे कर्ज</b><span class="big2 num due">${inr(C.out)}</span><small style="display:block">${borrowers.length} कर्जदार</small></div>
     <div class="card"><b>एकूण दिलेले</b><span class="big2 num">${inr(C.T.loan)}</span><small style="display:block">व्याज मिळाले ${inr(C.T.int)}</small></div></div>`;
+  if (canLoanW()) h += loanForm();
   if (S.admin){
     const pend = reqs.filter(r => r.status === 'pending'), rest = reqs.filter(r => r.status !== 'pending');
-    h += loanForm();
     h += `<h2>ऑनलाइन कर्ज अर्ज${pend.length ? ' (' + pend.length + ' नवीन)' : ''}</h2>`;
     h += reqs.length ? pend.map(reqCard).join('') + (rest.length ? `<div class="hint" style="margin-top:14px">मागील अर्ज</div>` + rest.slice(0,8).map(reqCard).join('') : '') : '<div class="empty card"><b>अर्ज नाहीत</b>सभासदांनी अर्ज केल्यावर येथे दिसतील.</div>';
   } else if (can('apply') && S.me && S.me.acc){
@@ -741,17 +762,18 @@ function viewLoans(C){
 
 /* ================= collection window (admin): monthly share + loan hapta, separate acceptance ================= */
 function enCtx(){
-  const acc = S.en.acc || (S.members[0] || {}).acc, date = S.en.date || today();
+  const am = activeMembers(), date = S.en.date || today();
+  let acc = S.en.acc; if (!am.some(m => m.acc === acc)) acc = (am[0] || {}).acc;
   return {acc, date, k:date.slice(0,7), r:rowFor(acc, date.slice(0,7))};
 }
 function viewEntry(C){
-  if (!S.admin) return empty('फक्त admin साठी', 'नोंदी भरण्याचा अधिकार फक्त admin कडे आहे.');
-  if (!S.members.length) return empty('सभासद नाहीत', '“अधिक → सभासद” मधून आधी सभासद जोडा.');
+  if (!canCollect()) return empty('परवानगी नाही', 'संकलन नोंदवण्याचा अधिकार फक्त admin कडे किंवा admin ने अधिकार दिलेल्या सभासदाकडे आहे.');
+  if (!activeMembers().length) return empty('सभासद नाहीत', '“अधिक → सभासद” मधून आधी सभासद जोडा.');
   const {acc, date, k, r} = enCtx(), per = C.per[acc] || {credit:0}, hasLoan = r.hs !== 'none', shDone = r.sRem <= 0;
-  const recent = C.ev.filter(e => e.col === 'tx' && e.kind !== 'loan').slice(-10).reverse(), samples = S.tx.filter(x => x.note === 'नमुना').length;
+  const recent = C.ev.filter(e => e.col === 'tx' && e.kind !== 'loan' && e.kind !== 'exit').slice(-10).reverse(), samples = S.tx.filter(x => x.note === 'नमुना').length;
   const cr = per.credit, dis = hasLoan ? '' : 'disabled';
   return `<h2 style="margin-top:20px">मासिक संकलन</h2>
-  <div class="card">${F.sel('f-acc', 'सभासद', memberOpts(), acc).replace(' data-keep', '')}${F.date('f-date', 'तारीख (हिशेबाचा महिना: ' + mlabel(k) + ')', date).replace(' data-keep', '')}
+  <div class="card">${F.sel('f-acc', 'सभासद', memberOpts(true), acc).replace(' data-keep', '')}${F.date('f-date', 'तारीख (हिशेबाचा महिना: ' + mlabel(k) + ')', date).replace(' data-keep', '')}
     <div class="g2">${F.sel('f-mode', 'पद्धत', MODES.map(x => [x, x]), 'रोख')}${F.txt('f-note', 'टीप (ऐच्छिक)', '', 'maxlength="60"')}</div></div>
 
   <div class="card ${shDone ? 'dim' : ''}" style="margin-top:12px"><div class="row-b" style="justify-content:space-between"><b>१. मासिक बचत (शेअर)</b><span class="pill ${shDone ? 'good' : r.sPaid > 0 ? 'gold' : 'bad'}">${shDone ? 'भरले' : r.sPaid > 0 ? 'अर्धवट' : 'बाकी'}</span></div>
@@ -760,7 +782,7 @@ function viewEntry(C){
     <button class="btn" data-act="save-share" ${shDone ? 'disabled' : ''}>बचत स्वीकारा</button></div>
 
   <div class="card ${hasLoan ? '' : 'dim'}" style="margin-top:12px"><div class="row-b" style="justify-content:space-between"><b>२. कर्ज हप्ता + व्याज</b><span class="pill ${!hasLoan ? '' : r.hs === 'paid' ? 'good' : r.hs === 'part' ? 'gold' : 'bad'}">${!hasLoan ? 'कर्ज नाही' : r.hs === 'paid' ? 'भरले' : r.hs === 'part' ? 'अर्धवट' : 'बाकी'}</span></div>
-    ${hasLoan ? `<div class="hint">थकबाकी ${inr(r.out)} · दर ${r.rate}% · हप्ता टप्पा ${inr(r.slab)} (कर्जाची सर्वाधिक रक्कम ${inr(r.peak)} वरून ठरला, कर्ज संपेपर्यंत कायम)${r.hArr > 0 ? ' · मागील हप्ता बाकी ' + inr(r.hArr) : ''}</div>` : '<div class="hint">या सभासदाचे या महिन्यात कर्ज नाही. हा भाग बंद आहे.</div>'}
+    ${hasLoan ? `<div class="hint">थकबाकी ${inr(r.out)} · व्याजासाठी रक्कम ${inr(r.iBase)} · दर ${r.iRate}% · हप्ता टप्पा ${inr(r.slab)} (कर्जाची सर्वाधिक रक्कम ${inr(r.peak)} वरून ठरला, कर्ज संपेपर्यंत कायम)${r.hArr > 0 ? ' · मागील हप्ता बाकी ' + inr(r.hArr) : ''}</div>` : '<div class="hint">या सभासदाचे या महिन्यात कर्ज नाही. हा भाग बंद आहे.</div>'}
     ${F.num('h-amt', 'मुद्दल हप्ता (₹): बदलता येतो', hasLoan ? r.hRem : '', dis)}
     <label for="h-due">व्याज देय (थकबाकी × दर, आपोआप)</label><input id="h-due" type="number" value="${hasLoan ? r.iRem : 0}" disabled>
     ${F.num('h-intr', 'व्याज प्रत्यक्ष मिळाले (₹)', hasLoan ? r.iRem : '', dis)}
@@ -770,8 +792,8 @@ function viewEntry(C){
 
   <div class="card total" id="en-total-card"><span>एकूण (बचत + हप्ता + व्याज)</span><b class="num" id="en-total"></b><small id="en-parts" class="num"></small></div>
   <div class="hint">जास्त किंवा कमी व्याज फरक त्या सभासदाच्या क्रेडिटमध्ये जातो आणि पुढील महिन्यात जुळवता येतो. फक्त व्याजाचा फरकच क्रेडिटमध्ये जातो. नवीन कर्ज “कर्ज” टॅबमधून द्या.</div>
-  <h2>शेवटच्या नोंदी (संपादन किंवा हटवा)</h2>
-  <div class="card list">${recent.map(e => evRow(e, {admin:true})).join('') || '<div class="empty">नोंदी नाहीत</div>'}</div>
+  <h2>शेवटच्या नोंदी${S.admin ? ' (संपादन किंवा हटवा)' : ''}</h2>
+  <div class="card list">${recent.map(e => evRow(e, {admin:S.admin})).join('') || '<div class="empty">नोंदी नाहीत</div>'}</div>
   ${samples ? `<div class="note"><b>${samples} नमुना नोंदी</b> अजून आहेत. खऱ्या वापराआधी त्या काढून टाका.<br>
     ${S.confirmDel === 'samples' ? `<button class="btn sm danger" style="margin-top:10px" data-act="del-samples-yes">होय, नमुना नोंदी हटवा</button> <button class="btn sm alt" data-act="del-no">रद्द</button>` : `<button class="btn sm alt" style="margin-top:10px" data-act="del-samples">नमुना नोंदी काढा</button>`}</div>` : ''}`;
 }
@@ -793,7 +815,7 @@ function viewMembers(C){
   return `${back()}<input class="search" id="q" type="search" placeholder="नाव किंवा खाते क्रमांक शोधा" value="${esc(S.q)}" aria-label="सभासद शोधा">
   <div class="card list" style="margin-top:12px">${rows.map(m => { const p = C.per[m.acc] || {inst:0, out:0, credit:0};
     return `<button class="item" ${allow(m.acc) ? `data-act="open" data-acc="${m.acc}"` : 'disabled style="cursor:default"'}><div class="acc num">${m.acc}</div><div class="mid"><b>${esc(m.name)}</b><small>बचत ${inr(p.inst)}${p.credit > 0 ? ' · क्रेडिट ' + inr(p.credit) : ''}</small></div>
-    <div class="amt num">${p.out > 0 ? `<span class="due">${inr(p.out)}</span><small>येणे कर्ज</small>` : '<span class="pill good">कर्ज नाही</span>'}</div></button>`; }).join('') || '<div class="empty"><b>सभासद सापडला नाही</b>दुसरे नाव शोधा.</div>'}</div>
+    <div class="amt num">${isExited(m.acc) ? '<span class="pill bad">बाहेर पडले</span>' : p.out > 0 ? `<span class="due">${inr(p.out)}</span><small>येणे कर्ज</small>` : '<span class="pill good">कर्ज नाही</span>'}</div></button>`; }).join('') || '<div class="empty"><b>सभासद सापडला नाही</b>दुसरे नाव शोधा.</div>'}</div>
   ${S.admin ? `<h2>नवीन सभासद जोडा</h2><div class="card">${F.txt('m-name', 'पूर्ण नाव')}<div class="g2">${F.txt('m-mob', 'मोबाईल (ऐच्छिक)', '', 'inputmode="numeric"')}${F.mon('m-join', 'सामील महिना (ऐच्छिक)')}</div>
     <button class="btn alt" data-act="addmem">सभासद जोडा</button></div>` : ''}`;
 }
@@ -826,6 +848,9 @@ function viewMore(){
     ['settings','gear','सेटिंग्ज','बचत रक्कम, व्याजदर, हप्ता स्लॅब', S.admin],
     ['perms','shield','सभासद अधिकार','लॉगिन चालू/बंद आणि अधिकारांची यादी', S.admin],
     ['logins','key','लॉगिन आयडी आणि पासवर्ड','सभासदांसाठी पासवर्ड तयार करा', S.admin],
+    ['polls','check','मतदान','सभासदांचे मतदान: सहमत / असहमत', can('polls')],
+    ['notices','report','सूचना','admin च्या सूचना (हप्ता तारीख बदल इ.)', can('notices')],
+    ['lockset','shield','ॲप लॉक (PIN)','ऐच्छिक ४ अंकी PIN', !!(S.me && S.me.acc && !S.admin)],
     ['pw','key','माझा पासवर्ड बदला','स्वतःचा पासवर्ड बदला', !!S.me]
   ].filter(x => x[4]);
   return `<h2 style="margin-top:20px">अधिक</h2><div class="card list menu">${items.map(([t,i,a,b]) => `<button class="item" data-act="tab" data-t="${t}"><span class="ic">${ICON[i]}</span><div class="mid"><b>${a}</b><small>${b}</small></div></button>`).join('')}</div>`;
@@ -921,6 +946,8 @@ function viewSettings(C){
   <div class="card" style="margin-top:12px"><b>मासिक हप्ता स्लॅब (मुद्दल)</b><div class="hint" style="margin-top:2px">थकबाकी कर्जाच्या रकमेनुसार मासिक मुद्दल हप्ता. व्याज वेगळे.</div>
     ${sl.slice(0,3).map((s,i) => `<div class="g2">${F.num('sl-f' + i, 'कर्ज किमान (₹) ' + (i + 1), s[0])}${F.num('sl-a' + i, 'हप्ता (₹)', s[1])}</div>`).join('')}
     <button class="btn alt" data-act="set-save-slabs">स्लॅब जतन करा</button></div>
+  <div class="card" style="margin-top:12px"><b>हप्त्याची तारीख</b><div class="hint" style="margin-top:2px">या तारखेपर्यंत (ती धरून) घेतलेल्या कर्जाचे त्याच महिन्याच्या हप्त्यात १ महिन्याचे व्याज लागते. त्यानंतरच्या कर्जाचे व्याज पुढील महिन्याच्या हप्त्यापासून.</div>
+    ${F.num('st-hapday', 'हप्त्याची तारीख (महिन्याचा दिवस)', hapDay(), 'min="1" max="31" step="1"')}<button class="btn alt" data-act="set-save-hapday">जतन करा</button></div>
   <div class="card" style="margin-top:12px"><b>सोसायटी सुरुवात महिना</b><div class="hint" style="margin-top:2px">या महिन्यापासून बचतीचा हिशेब आणि “मागील बाकी” मोजली जाते. रिकामे असल्यास पहिल्या नोंदीचा महिना.</div>
     ${F.mon('st-start', 'सुरुवात महिना', c.startMonth || '')}<button class="btn alt" data-act="set-save-start">जतन करा</button></div>
   <div class="card" style="margin-top:12px"><b>admin चा मोबाईल</b><div class="hint" style="margin-top:2px">ऑनलाइन अर्ज पाठवता न आल्यास सभासदांना WhatsApp ने अर्ज पाठवण्यासाठी हा नंबर वापरला जातो.</div>
@@ -941,7 +968,10 @@ function viewLogins(){
   const creds = S.creds ? `<div class="note" style="margin-top:0"><b>हे पासवर्ड फक्त आत्ता दिसतात.</b> कॉपी करून सभासदांना पाठवा. नंतर पुन्हा पाहता येत नाहीत.
       <textarea class="cred" id="cred-box" readonly aria-label="नवीन आयडी आणि पासवर्ड">${esc(S.creds.map(c => c.name + '\nआयडी: ' + c.uid + '   पासवर्ड: ' + c.pw).join('\n\n'))}</textarea>
       <div class="row-b" style="margin-top:10px"><button class="btn sm" data-act="copy-creds">कॉपी करा</button><button class="btn sm alt" data-act="hide-creds">लपवा</button></div></div>` : '';
-  return `${back()}<h2 style="margin-top:8px">लॉगिन आयडी आणि पासवर्ड</h2><div class="card">${creds}
+  const prs = S.pwreqs.slice().sort((a,b) => b.ts - a.ts);
+  const reqs = prs.length ? `<h2 style="margin-top:8px">पासवर्ड विसरल्याच्या विनंत्या (${prs.length})</h2><div class="card list">${prs.map(r => { const m = S.members.find(x => uidFor(x.acc) === r.uid);
+    return `<div class="item" style="cursor:default"><div class="mid"><b>${esc(m ? m.name : r.uid)}</b><small>आयडी ${esc(r.uid)} · ${new Date(r.ts).toLocaleString('en-IN')}</small></div><button class="btn sm" data-act="pw-issue" data-pid="${esc(r.pid)}" data-uid="${esc(r.uid)}">नवीन पासवर्ड द्या</button></div>`; }).join('')}</div>` : '';
+  return `${back()}${reqs}<h2 style="margin-top:8px">लॉगिन आयडी आणि पासवर्ड</h2><div class="card">${creds}
     <div class="hint" style="margin:0 0 6px">आयडी खाते क्रमांकावरून ठरतो (उदा. m001). पासवर्ड विसरल्यास “नवीन पासवर्ड” दाबा. अधिकार “सभासद अधिकार” मध्ये ठरवा.</div>
     <button class="btn" ${missing ? '' : 'disabled'} data-act="gen-missing">लॉगिन नसलेल्या सर्वांसाठी तयार करा (${missing})</button>
     <div class="list" style="margin-top:8px">${mem.map(m => { const has = !!S.auth[uidFor(m.acc)];
@@ -956,14 +986,20 @@ function sheetHtml(C){
   const m = S.members.find(x => x.acc === S.sel); if (!m) return '';
   const p = C.per[m.acc] || {inst:0, loan:0, prin:0, int:0, out:0, bonus:0, credit:0, rate:cfg().rate}, rep = pbReport(m.acc, S.pbFy);
   const share = S.admin || can('pdf'), fyo = [['all', 'सर्व कालावधी'], ...fyOptions().map(y => [y, 'आर्थिक वर्ष ' + fyLabel(y)])];
+  const ex = exitTx(m.acc), adm = S.admin;
+  const exitCard = !adm ? '' : ex ? `<div class="note" style="background:var(--bad-soft)"><b>बाहेर पडले:</b> ${dlabel(ex.date)} · अंतिम हिशेब ${inr(ex.amt)} (बचत परत ${inr(ex.refund || 0)}, कर्ज वजा ${inr(ex.loanSet || 0)}, क्रेडिट ${inr(ex.cr || 0)})<br><button class="btn sm alt" style="margin-top:10px" data-act="exit-undo" data-acc="${m.acc}">बाहेर पडणे रद्द करा</button></div>` :
+    `<h2>सभासद बाहेर पडणे (अंतिम हिशेब)</h2><div class="card"><div class="kv num"><div><span>बचत परत (पूर्ण)</span><b>${inr(p.inst)}</b></div><div><span>क्रेडिट शिल्लक</span><b>${inr(p.credit)}</b></div><div><span>येणारे कर्ज वजा</span><b>${inr(p.out)}</b></div><div><span>निव्वळ देणे</span><b class="${p.inst + p.credit - p.out < 0 ? 'due' : 'pos'}">${inr(p.inst + p.credit - p.out)}</b></div></div>
+      <div class="hint">निव्वळ रक्कम सकारात्मक असल्यास सोसायटी सभासदाला देते, नकारात्मक असल्यास सभासद सोसायटीला देतो. बोनस आधीच दिलेला असल्याने धरलेला नाही. चालू महिन्याचे व्याज असल्यास आधी हप्ता संकलनात नोंदवा.</div>
+      ${F.date('ex-date', 'बाहेर पडल्याची तारीख', today())}${F.txt('ex-note', 'टीप (ऐच्छिक)', '', 'maxlength="60"')}<button class="btn danger" data-act="exit-do" data-acc="${m.acc}">पुढे: अंतिम हिशेब तपासा</button></div>`;
   const wa = waLink(m.mobile, 'सर्वज्ञ सोसायटी पासबुक\n' + m.name + ' (खाते ' + m.acc + ')\n' + rep.sub + '\nएकूण बचत ' + inr(p.inst) + '\nयेणे कर्ज ' + inr(p.out) + '\nक्रेडिट शिल्लक ' + inr(p.credit) + '\nPDF पासबुक सोबत जोडत आहे.');
-  return `<div class="sheet" role="dialog" aria-label="पासबुक"><div class="sheet-top"><button data-act="close">← मागे</button><div style="min-width:0"><b style="display:block;overflow-wrap:anywhere">${esc(m.name)}</b><small style="opacity:.8">खाते क्रमांक ${m.acc}${m.mobile ? ' · ' + esc(m.mobile) : ''}</small></div></div>
+  return `<div class="sheet" role="dialog" aria-label="पासबुक"><div class="sheet-top"><button data-act="close">← मागे</button><div style="min-width:0"><b style="display:block;overflow-wrap:anywhere">${esc(m.name)}</b><small style="opacity:.8">खाते क्रमांक ${m.acc}${m.mobile ? ' · ' + esc(m.mobile) : ''}${m.joined ? ' · सामील ' + mlabel(m.joined) : ''}</small></div>${adm ? `<button data-act="edit" data-c="members" data-id="${esc(m.id)}" style="margin-left:auto">माहिती संपादन</button>` : ''}</div>
   <div class="sheet-in"><section class="hero" style="margin-top:0"><div class="lbl">येणे कर्ज</div><div class="big num">${inr(p.out)}</div>
     <div class="row"><div class="cell"><span>एकूण बचत</span><b class="num">${inr(p.inst)}</b></div><div class="cell"><span>घेतलेले कर्ज</span><b class="num">${inr(p.loan)}</b></div>
     <div class="cell"><span>मुद्दल भरले</span><b class="num">${inr(p.prin)}</b></div><div class="cell"><span>व्याज भरले</span><b class="num">${inr(p.int)}</b></div>
     <div class="cell"><span>बोनस मिळाला</span><b class="num">${inr(p.bonus)}</b></div><div class="cell"><span>क्रेडिट शिल्लक</span><b class="num">${inr(p.credit)}</b></div></div></section>
     ${p.out > 0 ? `<div class="note">सूचित मासिक व्याज (${p.rate}%): <b class="num">${inr(p.out * p.rate / 100)}</b> · मासिक हप्ता (मुद्दल) <b class="num">${inr(haptaFor(p.out, (S.C.per[m.acc] && loanInfo(m.acc).peak) || 0))}</b></div>` : ''}
     <h2>पासबुक</h2>${Fs('pb-fy', 'कालावधी', fyo, S.pbFy)}${tableHtml(rep)}
+    ${exitCard}
     ${share ? `<div class="row-b" style="margin-top:14px"><button class="btn" style="flex:1;margin:0" data-act="pb-pdf" data-acc="${m.acc}">PDF सेव्ह करा</button><a class="btn alt" style="flex:1;margin:0" href="${wa}" target="_blank" rel="noopener">WhatsApp उघडा</a></div>
     <div class="hint">आधी “PDF सेव्ह करा”, मग WhatsApp मध्ये ती फाईल जोडून पाठवा.</div>` : ''}</div></div>`;
 }
@@ -989,12 +1025,12 @@ function viewInterest(C){
   const recv = acc => sumBy(S.tx.filter(t => t.type === 'repay' && t.acc === acc && t.date.slice(0,7) === k), t => (t.cash ?? (t.amt + (t.int || 0))) - t.amt);
   const tDue = sumBy(rows, r => r.iDue), tRecv = sumBy(rows, r => recv(r.m.acc));
   return `${back()}<h2 style="margin-top:8px">कर्जावरील व्याज</h2>
-  <div class="hint" style="margin:-4px 0 8px">व्याज = महिन्याच्या सुरुवातीची थकबाकी × त्या कर्जाचा व्याजदर. आपोआप मोजले जाते.</div>
+  <div class="hint" style="margin:-4px 0 8px">व्याज = (महिन्याच्या सुरुवातीची थकबाकी + ${hapDay()} तारखेपर्यंत घेतलेले कर्ज) × व्याजदर. आपोआप मोजले जाते.</div>
   ${Fs('st-month', 'महिना', monthOptions(C).map(x => [x, mlabel(x)]), k)}
   <div class="sum2"><div class="card"><b>एकूण व्याज देय</b><span class="big2 num">${inr(tDue)}</span></div><div class="card"><b>प्रत्यक्ष मिळाले</b><span class="big2 num pos">${inr(tRecv)}</span><small style="display:block">फरक ${inr(tRecv - tDue)}</small></div></div>
   <div class="card list" style="margin-top:12px">${rows.map(r => { const rc = recv(r.m.acc), cr = (C.per[r.m.acc] || {}).credit || 0;
     return `<div class="item" style="cursor:default;align-items:flex-start"><div class="acc num">${r.m.acc}</div><div class="mid"><b>${esc(r.m.name)}</b>
-      <small class="num">थकबाकी ${inr(r.out)} × ${r.rate}% = देय ${inr(r.iDue)}</small>
+      <small class="num">व्याजासाठी रक्कम ${inr(r.iBase)} × ${r.iRate}% = देय ${inr(r.iDue)}</small>
       <div class="stl"><span class="k">मिळाले</span><span class="pill ${r.iPaid > 0 || rc > 0 ? (rc >= r.iDue ? 'good' : 'gold') : 'bad'} num">${inr(rc)}</span><small class="num">${rc - r.iPaid === 0 ? '' : (rc - r.iPaid > 0 ? 'जास्त ' : 'कमी ') + inr(Math.abs(rc - r.iPaid)) + ' क्रेडिटमध्ये'}</small></div>
       <div class="stl"><span class="k">क्रेडिट</span><b class="num ${cr < 0 ? 'due' : 'pos'}">${inr(cr)}</b><small>${cr < 0 ? 'व्याज बाकी' : cr > 0 ? 'जमा' : ''}</small></div></div></div>`; }).join('') || '<div class="empty"><b>या महिन्यात कर्ज नाही</b>कोणाचेही व्याज देय नाही.</div>'}</div>`;
 }
@@ -1016,12 +1052,14 @@ function editSpec(c, d){
     if (d.type === 'repay'){ const c0 = d.cash ?? (d.amt + (d.int || 0)); return {title:'हप्ता नोंद संपादन', f:[dt, amt('मुद्दल हप्ता (₹)', d.amt), ['int', 'num', 'व्याज देय/लागू (₹)', d.int || 0], ['recv', 'num', 'व्याज प्रत्यक्ष मिळाले (₹)', c0 - d.amt], mode, note]}; }
     if (d.type === 'bonus') return {title:'बोनस नोंद संपादन', f:[dt, amt('बोनस रक्कम (₹)', d.amt), ['reason', 'txt', 'कारण', d.reason || '']]};
   }
+  if (c === 'members') return {title:'सभासद माहिती संपादन', f:[['name', 'txt', 'पूर्ण नाव', d.name], ['mobile', 'txt', 'मोबाईल', d.mobile || ''], ['joined', 'mon', 'सामील महिना (ऐच्छिक)', d.joined || '']]};
+  if (c === 'notices') return {title:'सूचना संपादन', f:[['title', 'txt', 'शीर्षक', d.title], ['text', 'area', 'सूचना', d.text]]};
   if (c === 'exp') return {title:'खर्च संपादन', f:[dt, ['cat', 'cat', 'प्रकार', d.cat], amt('रक्कम (₹)', d.amt), mode, ['note', 'txt', 'तपशील', d.note || '']]};
   if (c === 'invtx') return {title:'गुंतवणूक व्याज/परत संपादन', f:[dt, ['kind', 'kind', 'काय मिळाले', d.kind], amt('रक्कम (₹)', d.amt), note]};
   if (c === 'invest') return {title:'गुंतवणूक योजना संपादन', f:[['name', 'txt', 'नाव', d.name], ['cat', 'icat', 'प्रकार', d.cat], ['amount', 'num', 'मुद्दल रक्कम (₹)' + (d.mode === 'monthly' ? ' प्रति महिना' : ''), d.amount], ['start', 'date', 'सुरुवात तारीख', d.start], note]};
   return null;
 }
-const editDoc = () => { const e = S.edit; if (!e) return null; return ({tx:S.tx, exp:S.exp, invtx:S.invtx, invest:S.invest}[e.c] || []).find(x => x.id === e.id) || null; };
+const editDoc = () => { const e = S.edit; if (!e) return null; return ({tx:S.tx, exp:S.exp, invtx:S.invtx, invest:S.invest, members:S.members, notices:S.notices}[e.c] || []).find(x => x.id === e.id) || null; };
 function editHtml(){
   const d = editDoc(), sp = d && editSpec(S.edit.c, d); if (!sp) return '';
   const fld = ([k, t, l, v]) => {
@@ -1029,6 +1067,8 @@ function editHtml(){
     if (t === 'date') return `<label for="${id}">${l}</label><input id="${id}" type="date" value="${esc(v)}">`;
     if (t === 'num') return `<label for="${id}">${l}</label><input id="${id}" type="number" inputmode="decimal" min="0" step="any" value="${esc(v)}">`;
     const sel = (opts) => `<label for="${id}">${l}</label><select id="${id}">${opts.map(([a,b]) => `<option value="${esc(a)}" ${String(a) === String(v) ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`;
+    if (t === 'mon') return `<label for="${id}">${l}</label><input id="${id}" type="month" value="${esc(v)}">`;
+    if (t === 'area') return `<label for="${id}">${l}</label><textarea id="${id}" rows="4">${esc(v)}</textarea>`;
     if (t === 'mode') return sel(MODES.map(x => [x, x]));
     if (t === 'cat') return sel(EXP_CATS.map(x => [x, x]));
     if (t === 'icat') return sel(INV_CATS.map(x => [x, x]));
@@ -1049,8 +1089,115 @@ async function editSave(){
   }
   if (S.edit.c === 'tx' && d.type === 'repay'){ const rc = +g('recv'); if (!(rc >= 0)) return toast('रक्कम तपासा'); data.cash = data.amt + rc; }
   if (S.edit.c === 'tx' && d.type === 'inst') data.cash = data.amt;
-  try { await S.db.doc(S.edit.c + '/' + S.edit.id).update(data); toast('बदल जतन केला'); S.edit = null; render(); }
-  catch(e){ toast('जतन झाले नाही: ' + ((e && e.code) || 'त्रुटी')); }
+  if (S.edit.c === 'members'){ if (!data.name) return toast('नाव भरा'); data.name = data.name.toUpperCase(); }
+  if (S.edit.c === 'notices' && (!data.title || !data.text)) return toast('शीर्षक आणि सूचना भरा');
+  const c = S.edit.c, id = S.edit.id;
+  ask('बदल जतन करायचा?', sp.f.filter(f => f[0] !== 'recv' || true).map(([k, t, l]) => [l, k === 'recv' ? inr(+g('recv')) : String(g(k)) || '-']), async () => { await S.db.doc(c + '/' + id).update(data); S.edit = null; toast('बदल जतन केला'); }, {ok:'बदल जतन करा'});
+}
+
+/* ================= polls ================= */
+const pollClosed = p => !!p.closed || (!!p.end && today() > p.end);
+function pollTally(id){
+  const best = {};
+  S.votes.forEach(d => { const x = d.a && d.a[id]; if (x && (!best[d.acc] || x.ts > best[d.acc].ts)) best[d.acc] = x; });
+  const t = {yes:0, no:0, yesN:[], noN:[]};
+  Object.entries(best).forEach(([acc, x]) => { if (x.v === 'yes'){ t.yes++; t.yesN.push(nameOf(+acc)); } else if (x.v === 'no'){ t.no++; t.noN.push(nameOf(+acc)); } });
+  return t;
+}
+const myVote = id => { if (!S.me || !S.me.acc) return null; const d = S.votes.find(v => v.pid === S.pid) || null; return d && d.a && d.a[id] ? d.a[id].v : null; };
+function viewPolls(C){
+  const list = S.polls.slice().sort((a,b) => b.ts - a.ts), n = activeMembers().length;
+  const canVote = !!(S.me && S.me.acc) && can('polls');
+  return `${back()}<h2 style="margin-top:8px">मतदान</h2>
+  ${list.map(p => { const t = pollTally(p.id), tot = t.yes + t.no, closed = pollClosed(p), mv = myVote(p.id), pc = v => tot ? Math.round(v * 100 / tot) : 0;
+    return `<div class="card" style="margin-top:12px"><div class="row-b" style="justify-content:space-between;align-items:flex-start"><b style="overflow-wrap:anywhere">${esc(p.q)}</b><span class="pill ${closed ? '' : 'good'}">${closed ? 'बंद' : 'चालू'}</span></div>
+      ${p.desc ? `<div class="hint" style="white-space:pre-wrap">${esc(p.desc)}</div>` : ''}<div class="hint">${dlabel(p.date || today())}${p.end ? ' · शेवटची तारीख ' + dlabel(p.end) : ''}</div>
+      <div class="bars" style="margin-top:6px"><div class="b"><span>सहमत</span><em class="num">${t.yes} (${pc(t.yes)}%)</em><div class="track"><div class="fill" style="width:${pc(t.yes)}%;background:var(--good)"></div></div></div>
+        <div class="b"><span>असहमत</span><em class="num">${t.no} (${pc(t.no)}%)</em><div class="track"><div class="fill" style="width:${pc(t.no)}%;background:var(--bad)"></div></div></div></div>
+      <div class="hint">एकूण मते ${tot} / ${n} सभासद</div>
+      ${canVote && !closed ? `<div class="seg" style="grid-template-columns:1fr 1fr;margin-top:10px" role="group" aria-label="तुमचे मत"><button data-act="vote" data-id="${esc(p.id)}" data-v="yes" aria-pressed="${mv === 'yes'}">सहमत</button><button data-act="vote" data-id="${esc(p.id)}" data-v="no" aria-pressed="${mv === 'no'}">असहमत</button></div>${mv ? '<div class="hint">तुमचे मत नोंदले आहे. मतदान बंद होईपर्यंत बदलता येते.</div>' : ''}` : (mv ? `<div class="hint">तुमचे मत: <b>${mv === 'yes' ? 'सहमत' : 'असहमत'}</b></div>` : '')}
+      ${S.admin ? `<details style="margin-top:10px"><summary class="hint" style="cursor:pointer">कोणी काय मत दिले (फक्त admin ला)</summary><div class="hint"><b>सहमत:</b> ${esc(t.yesN.join(', ') || '-')}<br><b>असहमत:</b> ${esc(t.noN.join(', ') || '-')}</div></details>
+        <div class="row-b" style="margin-top:10px;flex-wrap:wrap"><button class="btn sm alt" data-act="poll-toggle" data-id="${esc(p.id)}">${p.closed ? 'पुन्हा चालू करा' : 'मतदान बंद करा'}</button>${S.confirmDel === 'polls:' + p.id ? `<button class="btn sm danger" data-act="del-yes" data-c="polls" data-id="${esc(p.id)}">होय, हटवा</button><button class="btn sm alt" data-act="del-no">रद्द</button>` : `<button class="btn sm alt" data-act="del" data-c="polls" data-id="${esc(p.id)}">हटवा</button>`}</div>` : ''}</div>`; }).join('') || '<div class="empty card" style="margin-top:12px"><b>मतदान नाही</b>admin ने मतदान सुरू केल्यावर येथे दिसेल.</div>'}
+  ${S.admin ? `<h2>नवीन मतदान</h2><div class="card">${F.txt('pl-q', 'प्रश्न (उदा. हप्त्याची तारीख बदलावी का?)', '', 'maxlength="140"')}${F.area('pl-desc', 'तपशील (ऐच्छिक)')}${F.date('pl-end', 'शेवटची तारीख (ऐच्छिक)', '').replace(`value="${today()}"`, 'value=""')}
+    <div class="hint">पर्याय: सहमत / असहमत. प्रत्येक सभासद एकच मत देऊ शकतो.</div><button class="btn" data-act="poll-add">पुढे: तपासा</button></div>` : ''}`;
+}
+function pollAdd(){
+  const q = val('pl-q').trim(); if (!q) return toast('प्रश्न भरा');
+  const d = {q, desc:val('pl-desc').trim(), end:val('pl-end') || '', date:today(), ts:Date.now(), closed:false};
+  ask('मतदान तपासा', [['प्रश्न', q], ['तपशील', d.desc || '-'], ['शेवटची तारीख', d.end ? dlabel(d.end) : 'नाही']], async () => { await S.db.collection('polls').add(d); toast('मतदान सुरू केले'); ['pl-q','pl-desc','pl-end'].forEach(i => { const e = $(i); if (e) e.value = ''; }); }, {extra:'सर्व सभासदांना मतदान दिसेल.', ok:'मतदान सुरू करा'});
+}
+async function castVote(id, v){
+  if (!S.pid || !S.me || !S.me.acc) return toast('मत देण्यासाठी सभासद म्हणून लॉगिन करा');
+  const p = S.polls.find(x => x.id === id); if (!p || pollClosed(p)) return toast('मतदान बंद आहे');
+  const mine = S.votes.find(d => d.pid === S.pid), a = Object.assign({}, mine ? mine.a : {}, {[id]: {v, ts:Date.now()}});
+  try { await S.db.doc('votes/' + S.pid).set({pid:S.pid, acc:S.me.acc, uid:S.me.uid, a}); toast('तुमचे मत नोंदले'); }
+  catch(e){ toast('मत नोंदवता आले नाही. तुमच्या खात्याला लिहिण्याची परवानगी नसावी.'); }
+}
+
+/* ================= notices ================= */
+const seenTs = () => { try { return +localStorage.getItem('soc_seen') || 0; } catch(e){ return 0; } };
+const markSeen = () => { try { localStorage.setItem('soc_seen', String(Date.now())); } catch(e){} };
+const unseenNotices = () => { const s = seenTs(); return S.notices.filter(n => n.ts > s); };
+function noticeCard(n, admin){
+  return `<div class="card" style="margin-top:12px"><div class="row-b" style="justify-content:space-between;align-items:flex-start"><b style="overflow-wrap:anywhere">${esc(n.title)}</b><small class="hint num" style="margin:0;white-space:nowrap">${dlabel(n.date || today())}</small></div>
+    <div style="white-space:pre-wrap;margin-top:6px;overflow-wrap:anywhere">${esc(n.text)}</div>
+    ${admin ? `<div class="row-b" style="margin-top:10px"><button class="btn sm alt" data-act="edit" data-c="notices" data-id="${esc(n.id)}">संपादन</button>${S.confirmDel === 'notices:' + n.id ? `<button class="btn sm danger" data-act="del-yes" data-c="notices" data-id="${esc(n.id)}">होय, हटवा</button><button class="btn sm alt" data-act="del-no">रद्द</button>` : `<button class="btn sm alt" data-act="del" data-c="notices" data-id="${esc(n.id)}">हटवा</button>`}</div>` : ''}</div>`;
+}
+function viewNotices(){
+  const list = S.notices.slice().sort((a,b) => b.ts - a.ts);
+  return `${back()}<h2 style="margin-top:8px">सूचना</h2>
+  ${S.admin ? `<div class="card">${F.txt('nt-title', 'सूचनेचे शीर्षक (उदा. हप्त्याची तारीख बदलली)', '', 'maxlength="100"')}${F.area('nt-text', 'सूचना')}<button class="btn" data-act="notice-add">पुढे: तपासा</button></div>` : ''}
+  ${list.map(n => noticeCard(n, S.admin)).join('') || '<div class="empty card" style="margin-top:12px"><b>सूचना नाहीत</b>admin ने सूचना दिल्यावर येथे दिसेल.</div>'}`;
+}
+function noticeAdd(){
+  const title = val('nt-title').trim(), text = val('nt-text').trim(); if (!title || !text) return toast('शीर्षक आणि सूचना भरा');
+  ask('सूचना तपासा', [['शीर्षक', title], ['सूचना', text]], async () => { await S.db.collection('notices').add({title, text, date:today(), ts:Date.now()}); toast('सूचना प्रकाशित केली'); ['nt-title','nt-text'].forEach(i => { const e = $(i); if (e) e.value = ''; }); }, {extra:'सर्व सभासदांना ही सूचना दिसेल. ॲप उघडल्यावर पॉपअप येईल.', ok:'प्रकाशित करा'});
+}
+
+/* ================= app lock (PIN, optional, per device) ================= */
+const pinRec = uid => { try { const r = JSON.parse(localStorage.getItem('soc_pin') || 'null'); return r && r.uid === uid ? r : null; } catch(e){ return null; } };
+function viewLockSet(){
+  const has = !!(S.me && pinRec(S.me.uid)), pn = (id, l) => `<label for="${id}">${l}</label><input id="${id}" data-keep type="password" inputmode="numeric" maxlength="4" autocomplete="off">`;
+  return `${back()}<h2 style="margin-top:8px">ॲप लॉक (PIN)</h2><div class="card"><div class="hint" style="margin:0">ऐच्छिक. ४ अंकी PIN ठेवल्यास ॲप उघडताना (आणि बराच वेळ बाजूला राहिल्यावर) PIN विचारला जाईल. PIN फक्त या फोनवर राहतो.</div>
+    <div class="row-b" style="margin-top:10px"><span class="pill ${has ? 'good' : ''}">${has ? 'PIN चालू आहे' : 'PIN नाही'}</span></div>
+    ${pn('pin-new', has ? 'नवीन PIN (४ अंक)' : 'PIN (४ अंक)')}${pn('pin-new2', 'PIN पुन्हा लिहा')}<button class="btn" data-act="pin-save">${has ? 'PIN बदला' : 'PIN चालू करा'}</button>
+    ${has ? '<button class="btn alt" data-act="pin-remove">PIN काढा</button>' : ''}</div>`;
+}
+async function pinSave(){
+  const a = val('pin-new'), b = val('pin-new2');
+  if (!/^\d{4}$/.test(a)) return toast('PIN ४ अंकी असावा');
+  if (a !== b) return toast('दोन्ही PIN सारखे नाहीत');
+  const salt = newSalt(); try { localStorage.setItem('soc_pin', JSON.stringify({uid:S.me.uid, salt, hash:await hashPw(a, salt)})); } catch(e){ return toast('PIN जतन झाला नाही'); }
+  ['pin-new','pin-new2'].forEach(i => { const e = $(i); if (e) e.value = ''; }); toast('PIN चालू केला'); render();
+}
+function viewLockScreen(){
+  const dots = [0,1,2,3].map(i => `<i style="width:16px;height:16px;border-radius:50%;border:2px solid var(--accent);background:${i < S.pinBuf.length ? 'var(--accent)' : 'transparent'}"></i>`).join('');
+  const keys = ['1','2','3','4','5','6','7','8','9','','0','b'].map(k => k === '' ? '<span></span>' : `<button class="btn alt" style="margin:0;padding:16px;font-size:22px" data-act="pin-k" data-k="${k}" aria-label="${k === 'b' ? 'मागे' : k}">${k === 'b' ? '⌫' : k}</button>`).join('');
+  return `<div class="card gate" style="text-align:center"><h1>PIN टाका</h1><p>${esc(nameOf(S.me.acc))}</p><div style="display:flex;gap:14px;justify-content:center;margin:16px 0" aria-label="${S.pinBuf.length} अंक">${dots}</div>
+    ${S.pinMsg ? `<div class="msg" role="alert">${esc(S.pinMsg)}</div>` : ''}<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px">${keys}</div>
+    <button class="back" data-act="pin-forgot" style="margin-top:18px">PIN विसरलात? पासवर्डने लॉगिन करा</button></div>`;
+}
+
+function confirm2Html(){
+  const d = S.confirm2; if (!d) return '';
+  return `<div class="sheet" style="z-index:60;background:rgba(0,0,0,.5);display:grid;place-items:center;padding:20px" role="alertdialog" aria-label="पुन्हा खात्री करा"><div class="card" style="max-width:420px;width:100%">
+    <h2 style="margin-top:0">पुन्हा खात्री करा</h2><div class="hint" style="margin:0 0 8px"><b>${esc(d.title)}</b>: खालील माहिती बरोबर आहे का?</div>
+    ${d.rows.slice(0, 9).map(([k,v]) => `<div class="kv" style="grid-template-columns:110px 1fr;margin:0 0 6px"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}
+    <button class="btn" data-act="accept2">होय, जतन करा</button><button class="btn alt" data-act="back2">नाही, मागे जा</button></div></div>`;
+}
+function noticePopupHtml(){
+  const list = unseenNotices().sort((a,b) => b.ts - a.ts).slice(0, 3); if (!list.length) return '';
+  return `<div class="sheet" style="z-index:55;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:20px" role="dialog" aria-label="नवीन सूचना"><div class="card" style="max-width:420px;width:100%;max-height:80vh;overflow:auto">
+    <h2 style="margin-top:0">नवीन सूचना</h2>${list.map(n => `<div style="margin-bottom:12px"><b>${esc(n.title)}</b><div style="white-space:pre-wrap;overflow-wrap:anywhere">${esc(n.text)}</div><small class="hint">${dlabel(n.date || today())}</small></div>`).join('')}
+    <button class="btn" data-act="notice-ok">ठीक आहे</button></div></div>`;
+}
+function homeExtras(){
+  let h = '';
+  const open = S.polls.filter(p => !pollClosed(p) && S.me && S.me.acc && can('polls') && !myVote(p.id));
+  if (open.length) h += `<button class="item card" style="margin-top:16px;background:var(--gold-soft);border-color:var(--gold)" data-act="tab" data-t="polls"><div class="mid"><b>${open.length} मतदान तुमच्या मताची वाट पाहत आहे</b><small>${esc(open[0].q)}</small></div><span class="pill gold">मत द्या</span></button>`;
+  const ns = can('notices') ? S.notices.slice().sort((a,b) => b.ts - a.ts).slice(0, 2) : [];
+  if (ns.length) h += `<div class="card" style="margin-top:12px"><div class="row-b" style="justify-content:space-between"><b>सूचना</b><button class="qk" data-act="tab" data-t="notices">सर्व सूचना</button></div>${ns.map(n => `<div style="margin-top:8px"><b>${esc(n.title)}</b> <small class="hint num">${dlabel(n.date || today())}</small><div style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px">${esc(n.text)}</div></div>`).join('')}</div>`;
+  return h;
 }
 </script>
 <script>
@@ -1062,8 +1209,8 @@ async function hashPw(pw, salt){
   const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
   return hex(await crypto.subtle.deriveBits({name:'PBKDF2', salt:new TextEncoder().encode(salt), iterations:150000, hash:'SHA-256'}, k, 256));
 }
-function remember(uid, h){ try { if (uid) localStorage.setItem('soc_login', JSON.stringify({uid, h})); else localStorage.removeItem('soc_login'); } catch(e){} }
-const loginOn = uid => { const p = S.perms[uid]; return !p || p.enabled !== false; };
+function remember(uid, h){ try { if (uid && uid !== 'admin') localStorage.setItem('soc_login', JSON.stringify({uid, h})); else localStorage.removeItem('soc_login'); } catch(e){} }
+const loginOn = uid => { const p = S.perms[uid], m = S.members.find(x => uidFor(x.acc) === uid); return (!p || p.enabled !== false) && !(m && isExited(m.acc)); };
 async function setCred(uid, pw, role, acc){
   const salt = newSalt(), hash = await hashPw(pw, salt);
   if (S.me && S.me.uid === uid){ S.me.h = hash; remember(uid, hash); }
@@ -1073,7 +1220,7 @@ function refreshAdmin(){ S.admin = !!S.platformAdmin && !!S.me && S.me.role === 
 function revalidate(){
   if (!S.me){
     try { const st = JSON.parse(localStorage.getItem('soc_login') || 'null'), a = st && S.auth[st.uid];
-      if (a && a.hash === st.h && (a.role === 'admin' || loginOn(a.uid))) S.me = {uid:a.uid, role:a.role, acc:a.acc, h:a.hash}; } catch(e){}
+      if (a && a.uid !== 'admin' && a.hash === st.h && loginOn(a.uid)){ S.me = {uid:a.uid, role:a.role, acc:a.acc, h:a.hash}; if (pinRec(a.uid)){ S.locked = true; S.pinBuf = ''; } } } catch(e){}
   } else { const a = S.auth[S.me.uid]; if (!a || a.hash !== S.me.h || (a.role !== 'admin' && !loginOn(a.uid))){ S.me = null; remember(null); } }
 }
 async function doLogin(){
@@ -1087,7 +1234,7 @@ async function doLogin(){
     render(); const p = $('l-pw'); if (p) p.value = ''; return;
   }
   if (a.role !== 'admin' && !loginOn(uid)){ S.loginMsg = 'तुमचे लॉगिन admin ने बंद केले आहे.'; return render(); }
-  S.me = {uid, role:a.role, acc:a.acc, h:a.hash}; remember(uid, a.hash); S.loginMsg = ''; S.fails = 0; S.tab = 'home'; S.lastPend = 0; refreshAdmin(); checkPopup(); render();
+  S.me = {uid, role:a.role, acc:a.acc, h:a.hash}; S.locked = false; remember(uid, a.hash); S.loginMsg = ''; S.fails = 0; S.tab = 'home'; S.lastPend = 0; refreshAdmin(); checkPopup(); render();
 }
 async function setupAdmin(){
   const p1 = $('s-pw').value, p2 = $('s-pw2').value;
@@ -1105,10 +1252,20 @@ function viewGate(){
       <button class="btn" data-act="setup-admin">पासवर्ड जतन करा</button></div>`;
     return '<div class="empty card gate"><b>ॲप अजून सुरू झालेले नाही</b>admin ने पासवर्ड ठरवल्यावर लॉगिन करता येईल.</div>';
   }
+  if (S.forgot){
+    const wa = waLink(cfg().adminMobile, 'पासवर्ड विसरलो आहे. कृपया नवीन पासवर्ड द्या.\nआयडी: ' + ($('fg-id') ? $('fg-id').value : ''));
+    return `<div class="card gate"><h1>पासवर्ड विसरलात?</h1><p>तुमचा आयडी टाका. admin तुम्हाला नवीन पासवर्ड देईल.</p>
+      <label for="fg-id">आयडी</label><input id="fg-id" data-keep type="text" autocapitalize="none" placeholder="उदा. m001">${msg}
+      ${S.fgDone ? '<div class="note">विनंती admin ला पाठवली. नवीन पासवर्ड मिळाल्यावर लॉगिन करा.</div>' : ''}
+      <button class="btn" data-act="fg-send">विनंती admin ला पाठवा</button>
+      ${S.fgFail ? '<div class="msg" role="alert">ॲपमधून विनंती पाठवता आली नाही. खालील बटणाने WhatsApp वर कळवा.</div>' : ''}
+      <a class="btn alt" target="_blank" rel="noopener" href="${wa}">WhatsApp ने कळवा</a>
+      <button class="back" data-act="fg-close">← लॉगिनकडे परत</button></div>`;
+  }
   return `<div class="card gate"><h1>लॉगिन</h1><p>admin ने दिलेला आयडी आणि पासवर्ड टाका.</p>
     <label for="l-id">आयडी</label><input id="l-id" data-keep type="text" autocapitalize="none" autocomplete="username" placeholder="उदा. m001">
     <label for="l-pw">पासवर्ड</label><input id="l-pw" type="password" autocomplete="current-password">${msg}
-    <button class="btn" data-act="login">लॉगिन करा</button></div>`;
+    <button class="btn" data-act="login">लॉगिन करा</button><button class="back" data-act="fg-open" style="margin-top:12px">पासवर्ड विसरलात?</button></div>`;
 }
 
 /* ================= helpers ================= */
@@ -1116,35 +1273,39 @@ function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false
 function ask(title, rows, run, o = {}){ S.confirm = Object.assign({title, rows, run, ok:'स्वीकार करा आणि जतन करा'}, o); render(); }
 const rowFor = (acc, k) => statusFor(k).find(x => x.m.acc === acc);
 const val = id => { const e = $(id); return e ? e.value : ''; };
-function checkPopup(){ if (!S.admin || !S.ready) return; const p = pendingCount(); if (p > S.lastPend) S.popup = true; S.lastPend = p; }
+function checkPopup(){
+  if (S.ready && S.me && !S.admin && !S.locked && !S.nShown && unseenNotices().length){ S.nPopup = true; S.nShown = true; }
+  if (!S.admin || !S.ready) return; const p = pendingCount(); if (p > S.lastPend) S.popup = true; S.lastPend = p;
+}
 
 /* ================= render ================= */
-const VIEWS = {home:viewHome, status:viewStatus, loans:viewLoans, entry:viewEntry, more:viewMore, members:viewMembers, tally:viewTally, invest:viewInvest, expenses:viewExpenses, bonus:viewBonus, reports:viewReports, settings:viewSettings, perms:viewPerms, logins:viewLogins, interest:viewInterest, pw:viewPw};
-const GATE = {interest:'loans', status:'status', members:'members', tally:'tally', invest:'invest', expenses:'expenses', bonus:'bonus', reports:'reports'};
+const VIEWS = {home:viewHome, status:viewStatus, loans:viewLoans, entry:viewEntry, more:viewMore, members:viewMembers, tally:viewTally, invest:viewInvest, expenses:viewExpenses, bonus:viewBonus, reports:viewReports, settings:viewSettings, perms:viewPerms, logins:viewLogins, interest:viewInterest, pw:viewPw, polls:viewPolls, notices:viewNotices, lockset:viewLockSet};
+const GATE = {polls:'polls', notices:'notices', interest:'loans', status:'status', members:'members', tally:'tally', invest:'invest', expenses:'expenses', bonus:'bonus', reports:'reports'};
 function render(){
   const C = compute(); S.C = C; refreshAdmin();
   const ro = $('role');
   ro.textContent = S.me ? (S.admin ? 'admin' : 'सभासद') + ' · बाहेर पडा' : 'लॉगिन आवश्यक';
   if (S.me) ro.dataset.act = 'logout'; else delete ro.dataset.act;
-  document.querySelector('.tabs').hidden = !S.me;
+  document.querySelector('.tabs').hidden = !S.me || S.locked;
   let tabs = [['home','मुख्यपृष्ठ','home']];
   if (S.me){
     if (can('status')) tabs.push(['status','भरणा','check']);
-    if (S.admin || can('loans') || can('apply')) tabs.push(['loans','कर्ज','loan']);
-    if (S.admin) tabs.push(['entry','संकलन','edit']); else if (S.me.acc) tabs.push(['mine','माझे खाते','user']);
+    if (S.admin || can('loans') || can('apply') || canLoanW()) tabs.push(['loans','कर्ज','loan']);
+    if (canCollect()) tabs.push(['entry','संकलन','edit']); else if (S.me.acc) tabs.push(['mine','माझे खाते','user']);
     tabs.push(['more','अधिक','more']);
   }
   const pend = S.admin ? pendingCount() : 0;
   $('tabs').innerHTML = !S.me ? '' : tabs.map(([k,l,i]) => {
     const cur = S.tab === k || (k === 'more' && !['home','status','loans','entry','mine'].includes(S.tab));
-    return `<button data-act="tab" data-t="${k}" ${cur ? 'aria-current="true"' : ''}>${ICON[i]}<span>${l}</span>${k === 'loans' && pend ? `<span class="dot">${pend}</span>` : ''}</button>`; }).join('');
+    return `<button data-act="tab" data-t="${k}" ${cur ? 'aria-current="true"' : ''}>${ICON[i]}<span>${l}</span>${k === 'loans' && pend ? `<span class="dot">${pend}</span>` : ''}${k === 'more' && S.admin && S.pwreqs.length ? `<span class="dot">${S.pwreqs.length}</span>` : ''}</button>`; }).join('');
   let h;
   if (S.err) h = `<div class="empty card" style="margin-top:16px"><b>माहिती उघडता आली नाही</b>${esc(S.err)}</div>`;
   else if (!S.ready) h = '<div class="empty"><b>लोड होत आहे…</b></div>';
   else if (!S.me) h = viewGate();
+  else if (S.locked && !S.admin) h = viewLockScreen();
   else {
     const t = S.tab, fn = VIEWS[t] || viewHome;
-    if (['entry','settings','perms','logins'].includes(t) && !S.admin) h = empty('फक्त admin साठी', 'हे काम फक्त admin करू शकतो.');
+    if (['settings','perms','logins'].includes(t) && !S.admin) h = empty('फक्त admin साठी', 'हे काम फक्त admin करू शकतो.');
     else if (GATE[t] && !can(GATE[t])) h = back('home') + empty('परवानगी नाही', 'admin ने हे पाहण्याचा अधिकार दिलेला नाही.');
     else h = fn(C);
   }
@@ -1160,10 +1321,14 @@ function render(){
   if (S.confirm && S.me){ cf.hidden = false; cf.innerHTML = confirmHtml(); }
   else if (S.edit && S.me && S.admin && editDoc()){ cf.hidden = false; cf.innerHTML = editHtml(); Object.entries(ev).forEach(([id,v]) => { const e = $(id); if (e) e.value = v; }); }
   else { if (S.edit && !editDoc()) S.edit = null; cf.hidden = true; cf.innerHTML = ''; }
+  const c2 = $('confirm2');
+  if (S.confirm2 && S.me){ c2.hidden = false; c2.innerHTML = confirm2Html(); } else { c2.hidden = true; c2.innerHTML = ''; }
   const pp = $('popup');
-  if (S.popup && S.admin && pend){ pp.hidden = false; pp.innerHTML = popupHtml(); } else { pp.hidden = true; pp.innerHTML = ''; S.popup = false; }
+  if (S.popup && S.admin && pend){ pp.hidden = false; pp.innerHTML = popupHtml(); }
+  else if (S.nPopup && S.me && !S.admin && !S.locked && unseenNotices().length){ pp.hidden = false; pp.innerHTML = noticePopupHtml(); }
+  else { pp.hidden = true; pp.innerHTML = ''; S.popup = false; S.nPopup = false; }
   const sh = $('sheet');
-  if (S.sel != null && S.me){ sh.hidden = false; sh.innerHTML = sheetHtml(C); } else { sh.hidden = true; sh.innerHTML = ''; }
+  if (S.sel != null && S.me && !S.locked){ sh.hidden = false; sh.innerHTML = sheetHtml(C); } else { sh.hidden = true; sh.innerHTML = ''; }
   updateHint();
 }
 let raf = 0; const rerender = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); };
@@ -1174,21 +1339,23 @@ async function saveCfg(patch){ await S.db.doc('settings/main').set(Object.assign
 /* ================= entry: instalment / loan / repayment ================= */
 function entryCommon(){ const {acc, k, r} = enCtx(), date = val('f-date'); return {acc, date, k:date.slice(0,7), r:rowFor(acc, date.slice(0,7)), mode:val('f-mode'), note:val('f-note').trim()}; }
 function saveShare(){
+  if (!canCollect()) return toast('परवानगी नाही');
   const {acc, date, r, mode, note} = entryCommon();
   if (!acc || !date) return toast('सभासद आणि तारीख निवडा');
   if (r.sRem <= 0) return toast('या महिन्याची बचत भरली आहे');
-  const doc = {type:'inst', date, acc, amt:r.sRem, cash:r.sRem, mode, note, ts:Date.now()};
+  const doc = {type:'inst', date, acc, amt:r.sRem, cash:r.sRem, mode, note, ts:Date.now(), by:S.me.uid};
   const rows = [['प्रकार', 'मासिक बचत'], ['सभासद', 'खाते ' + acc + ' · ' + nameOf(acc)], ['तारीख', dlabel(date)], ['बचत रक्कम', inr(r.sRem)], ['पद्धत', mode]]; if (note) rows.push(['टीप', note]);
   ask('बचत तपासा', rows, async () => { await S.db.collection('tx').add(doc); toast('बचत जतन केली'); }, {extra: r.sArr > 0 ? 'यात मागील बाकी ' + inr(r.sArr) + ' समाविष्ट आहे.' : ''});
 }
 function saveHapta(){
+  if (!canCollect()) return toast('परवानगी नाही');
   const {acc, date, r, mode, note} = entryCommon();
   if (!acc || !date) return toast('सभासद आणि तारीख निवडा');
   if (!r || r.hs === 'none') return toast('या सभासदाचे कर्ज नाही');
   const amt = +val('h-amt') || 0, recv = +val('h-intr') || 0, due = r.iRem;
   if (!(amt >= 0) || !(recv >= 0)) return toast('रक्कम तपासा');
   if (!(amt > 0) && !(recv > 0)) return toast('हप्ता किंवा व्याज भरा');
-  const doc = {type:'repay', date, acc, amt, int:due, mode, note, ts:Date.now()}, cash = amt + recv, adj = recv - due; doc.cash = cash;
+  const doc = {type:'repay', date, acc, amt, int:due, mode, note, ts:Date.now(), by:S.me.uid}, cash = amt + recv, adj = recv - due; doc.cash = cash;
   const rows = [['प्रकार', 'कर्ज हप्ता'], ['सभासद', 'खाते ' + acc + ' · ' + nameOf(acc)], ['तारीख', dlabel(date)], ['मुद्दल हप्ता', inr(amt)], ['व्याज देय', inr(due)], ['व्याज मिळाले', inr(recv)], ['एकूण मिळाले', inr(cash)]];
   if (adj > 0) rows.push(['क्रेडिटमध्ये जमा', inr(adj)]); if (adj < 0) rows.push(['क्रेडिटमधून वजा', inr(-adj)]);
   rows.push(['पद्धत', mode]); if (note) rows.push(['टीप', note]);
@@ -1197,15 +1364,16 @@ function saveHapta(){
   ask('हप्ता तपासा', rows, async () => { await S.db.collection('tx').add(doc); toast('हप्ता जतन केला'); }, {warn, extra, block});
 }
 function saveLoan(){
+  if (!canLoanW()) return toast('परवानगी नाही');
   const acc = +val('ln-acc'), amt = +val('ln-amt'), date = val('ln-date'), rate = +(val('ln-rate') || cfg().rate), mode = val('ln-mode'), note = val('ln-note').trim();
   if (!acc) return toast('सभासद निवडा'); if (!date) return toast('तारीख निवडा'); if (!(amt > 0)) return toast('रक्कम भरा'); if (!(rate >= 0)) return toast('व्याजदर तपासा');
   const li = loanInfo(acc), tot = li.out + amt, peak = Math.max(li.peak, tot), hap = haptaFor(tot, peak), fromReq = S.fromReq;
   const rows = [['प्रकार', 'कर्ज दिले'], ['सभासद', 'खाते ' + acc + ' · ' + nameOf(acc)], ['तारीख', dlabel(date)], ['कर्ज रक्कम', inr(amt)], ['व्याजदर (या कर्जासाठी)', rate + '% प्रति महिना'], ['पद्धत', mode]]; if (note) rows.push(['टीप', note]);
   ask('कर्ज तपासा', rows, async () => {
-    await S.db.collection('tx').add({type:'loan', date, acc, amt, rate, mode, note, ts:Date.now()});
+    await S.db.collection('tx').add({type:'loan', date, acc, amt, rate, mode, note, ts:Date.now(), by:S.me.uid});
     if (fromReq) await S.db.doc('decisions/' + fromReq).set({status:'given', note:'', ts:Date.now()});
     S.fromReq = null; S.ln = {}; ['ln-amt','ln-note'].forEach(i => { const e = $(i); if (e) e.value = ''; }); toast('कर्ज नोंदवले');
-  }, {extra: `या कर्जानंतर एकूण थकबाकी ${inr(tot)}. मासिक हप्ता (मुद्दल) ${inr(hap)} — हा टप्पा कर्जाची सर्वाधिक रक्कम ${inr(peak)} वरून ठरला आणि कर्ज संपेपर्यंत कायम राहील. पुढील महिन्याचे व्याज ${inr(tot * rate / 100)}.`});
+  }, {extra: `या कर्जानंतर एकूण थकबाकी ${inr(tot)}. मासिक हप्ता (मुद्दल) ${inr(hap)} — हा टप्पा कर्जाची सर्वाधिक रक्कम ${inr(peak)} वरून ठरला आणि कर्ज संपेपर्यंत कायम राहील. ${+date.slice(8,10) <= hapDay() ? 'हे कर्ज ' + hapDay() + ' तारखेपर्यंतचे असल्याने या महिन्याच्या हप्त्यात १ महिन्याचे व्याज ' + inr(tot * rate / 100) + ' लागेल.' : 'हे कर्ज ' + hapDay() + ' तारखेनंतरचे असल्याने व्याज पुढील महिन्याच्या हप्त्यापासून (' + inr(tot * rate / 100) + ' प्रति महिना) लागेल.'}`});
 }
 async function changePw(){
   const o = val('pw-old'), n = val('pw-new'), n2 = val('pw-new2'), a = S.auth[S.me.uid];
@@ -1303,7 +1471,7 @@ document.addEventListener('click', async ev => {
   }
   else if (a === 'login') doLogin();
   else if (a === 'setup-admin') setupAdmin();
-  else if (a === 'logout'){ S.me = null; S.sel = null; S.tab = 'home'; S.creds = null; S.lastPend = 0; S.popup = false; remember(null); render(); window.scrollTo(0,0); }
+  else if (a === 'logout'){ S.me = null; S.locked = false; S.sel = null; S.tab = 'home'; S.creds = null; S.lastPend = 0; S.popup = false; remember(null); render(); window.scrollTo(0,0); }
   else if (a === 'hide-creds'){ S.creds = null; render(); }
   else if (a === 'copy-creds'){ const box = $('cred-box'); box.select(); try { await navigator.clipboard.writeText(box.value); toast('कॉपी झाले'); } catch(e){ toast('मजकूर निवडला आहे, कॉपी करा'); } }
   else if (a === 'gen-missing' || a === 'reset-pw'){
@@ -1329,8 +1497,49 @@ document.addEventListener('click', async ev => {
   else if (a === 'edit'){ if (S.admin){ S.edit = {c:d.c, id:d.id}; render(); } }
   else if (a === 'edit-cancel'){ S.edit = null; render(); }
   else if (a === 'edit-save') editSave();
-  else if (a === 'accept'){ const c = S.confirm; S.confirm = null; try { await c.run(); } catch(e){ toast('जतन झाले नाही: ' + ((e && e.code) || 'त्रुटी')); } render(); }
+  else if (a === 'accept'){ S.confirm2 = S.confirm; S.confirm = null; render(); }
+  else if (a === 'accept2'){ const c = S.confirm2; S.confirm2 = null; try { await c.run(); } catch(e){ toast('जतन झाले नाही: ' + ((e && e.code) || 'त्रुटी')); } render(); }
+  else if (a === 'back2'){ S.confirm = S.confirm2; S.confirm2 = null; render(); }
   else if (a === 'reject'){ S.confirm = null; render(); }
+  else if (a === 'notice-ok'){ markSeen(); S.nPopup = false; render(); }
+  else if (a === 'notice-add') noticeAdd();
+  else if (a === 'poll-add') pollAdd();
+  else if (a === 'vote') castVote(d.id, d.v);
+  else if (a === 'poll-toggle'){ const p = S.polls.find(x => x.id === d.id); if (p) try { await S.db.doc('polls/' + d.id).update({closed: !p.closed}); toast(p.closed ? 'मतदान पुन्हा चालू' : 'मतदान बंद केले'); } catch(e){ toast('बदल झाला नाही'); } }
+  else if (a === 'fg-open'){ S.forgot = true; S.loginMsg = ''; S.fgDone = false; S.fgFail = false; render(); }
+  else if (a === 'fg-close'){ S.forgot = false; S.loginMsg = ''; render(); }
+  else if (a === 'fg-send'){
+    const uid = val('fg-id').trim().toLowerCase();
+    if (!S.auth[uid] || uid === 'admin'){ S.loginMsg = 'हा आयडी सापडला नाही. आयडी तपासा.'; return render(); }
+    S.loginMsg = '';
+    try { if (!S.pid || !S.db) throw new Error('no'); await S.db.doc('pwreq/' + S.pid).set({pid:S.pid, uid, ts:Date.now()}); S.fgDone = true; S.fgFail = false; } catch(e){ S.fgFail = true; S.fgDone = false; }
+    render();
+  }
+  else if (a === 'pw-issue'){
+    const m = S.members.find(x => uidFor(x.acc) === d.uid); if (!m) return toast('सभासद सापडला नाही');
+    const pw = genPw();
+    try { await setCred(d.uid, pw, 'member', m.acc); await S.db.doc('pwreq/' + d.pid).delete(); S.creds = [{name:m.name, uid:d.uid, pw}]; window.scrollTo(0,0); } catch(e){ toast('नवीन पासवर्ड तयार झाला नाही'); }
+    render();
+  }
+  else if (a === 'pin-save') pinSave();
+  else if (a === 'pin-remove'){ try { localStorage.removeItem('soc_pin'); } catch(e){} toast('PIN काढला'); render(); }
+  else if (a === 'pin-k'){
+    if (d.k === 'b') S.pinBuf = S.pinBuf.slice(0, -1); else if (S.pinBuf.length < 4) S.pinBuf += d.k;
+    S.pinMsg = ''; render(); if (S.pinBuf.length === 4) checkPin();
+  }
+  else if (a === 'pin-forgot'){ try { localStorage.removeItem('soc_pin'); } catch(e){} S.me = null; S.locked = false; S.pinBuf = ''; remember(null); S.loginMsg = 'पासवर्डने लॉगिन करा.'; render(); }
+  else if (a === 'exit-do'){
+    if (!S.admin) return;
+    const acc = +d.acc, p = S.C.per[acc], date = val('ex-date') || today(), note = val('ex-note').trim(), refund = p.inst, loanSet = p.out, cr = p.credit, net = refund + cr - loanSet;
+    ask('अंतिम हिशेब तपासा', [['सभासद', 'खाते ' + acc + ' · ' + nameOf(acc)], ['तारीख', dlabel(date)], ['बचत परत (पूर्ण)', inr(refund)], ['क्रेडिट शिल्लक', inr(cr)], ['कर्ज वजा', inr(loanSet)], [net >= 0 ? 'सभासदाला देणे' : 'सभासदाकडून घेणे', inr(Math.abs(net))]].concat(note ? [['टीप', note]] : []),
+      async () => { await S.db.collection('tx').add({type:'exit', date, acc, amt:net, refund, loanSet, cr, note, ts:Date.now(), by:S.me.uid}); S.sel = null; toast('सभासद बाहेर पडल्याची नोंद केली'); },
+      {warn:'ही नोंद केल्यावर सभासदाचे लॉगिन बंद होईल आणि पुढील संकलनातून तो वगळला जाईल. चूक झाल्यास “बाहेर पडणे रद्द करा” वापरा.', ok:'सभासद बाहेर नोंदवा'});
+  }
+  else if (a === 'exit-undo'){
+    const t = exitTx(+d.acc); if (!t) return;
+    ask('बाहेर पडणे रद्द करायचे?', [['सभासद', nameOf(t.acc)], ['अंतिम हिशेब', inr(t.amt)]], async () => { await S.db.doc('tx/' + t.id).delete(); toast('रद्द केले'); }, {ok:'रद्द करा', extra:'सभासद पुन्हा सक्रिय होईल. त्याचे लॉगिन “सभासद अधिकार” मध्ये तपासा.'});
+  }
+  else if (a === 'set-save-hapday'){ const v = Math.round(+val('st-hapday')); if (!(v >= 1 && v <= 31)) return toast('१ ते ३१ दरम्यान दिवस भरा'); try { await saveCfg({hapDay:v}); toast('हप्त्याची तारीख जतन केली'); } catch(e){ toast('जतन झाले नाही'); } }
   else if (a === 'addmem') addMember();
   else if (a === 'iv-add') ivAdd(); else if (a === 'ix-add') ixAdd(); else if (a === 'x-add') xAdd(); else if (a === 'bn-add') bnAdd();
   else if (a === 'iv-stop'){ try { await S.db.doc('invest/' + d.id).update({end: today().slice(0,7)}); toast('मासिक गुंतवणूक थांबवली'); } catch(e){ toast('बदल झाला नाही'); } }
@@ -1381,6 +1590,24 @@ document.addEventListener('change', ev => {
   else if (id === 'rp-to'){ S.rp.to = t.value; render(); }
 });
 
+/* ================= app lock + auto sign-out ================= */
+async function checkPin(){
+  const r = S.me && pinRec(S.me.uid); let ok = false;
+  try { ok = !!r && (await hashPw(S.pinBuf, r.salt)) === r.hash; } catch(e){}
+  if (ok){ S.locked = false; S.pinBuf = ''; S.pinFails = 0; S.pinMsg = ''; checkPopup(); return render(); }
+  S.pinFails = (S.pinFails || 0) + 1; S.pinBuf = '';
+  if (S.pinFails >= 5){ try { localStorage.removeItem('soc_pin'); } catch(e){} S.me = null; S.locked = false; remember(null); S.loginMsg = '५ वेळा PIN चुकला. पासवर्डने लॉगिन करा.'; S.pinFails = 0; }
+  else S.pinMsg = 'PIN चुकीचा आहे. (' + S.pinFails + '/5)';
+  render();
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden){ S._hid = Date.now(); return; }
+  const away = S._hid ? Date.now() - S._hid : 0; S._hid = 0;
+  if (!S.me) return;
+  if (S.admin && away > 5 * 60000){ S.me = null; S.sel = null; S.tab = 'home'; S.creds = null; S.loginMsg = 'सुरक्षेसाठी admin लॉगआउट झाला. पुन्हा लॉगिन करा.'; render(); }
+  else if (!S.admin && away > 60000 && pinRec(S.me.uid)){ S.locked = true; S.pinBuf = ''; S.pinMsg = ''; render(); }
+});
+
 /* ================= boot ================= */
 (async () => {
   render();
@@ -1390,13 +1617,14 @@ document.addEventListener('change', ev => {
   const db = claude && await claude.use('db');
   if (!db){ S.err = 'कृपया claude.ai मध्ये लॉगिन करा. admin ने तुम्हाला आमंत्रित केलेले असावे.'; render(); return; }
   S.db = db;
-  const names = ['members','tx','invest','invtx','exp','auth','perms','requests','decisions','settings'], got = {};
+  const names = ['members','tx','invest','invtx','exp','auth','perms','requests','decisions','settings','polls','votes','notices'], got = {};
   const upd = () => { S.ready = names.every(n => got[n]); if (S.ready){ revalidate(); refreshAdmin(); checkPopup(); } rerender(); };
   const fail = e => { S.err = 'प्रवेश मिळाला नाही (' + (e && e.code || 'त्रुटी') + ').'; render(); };
   const arr = (n, key) => db.collection(n).onSnapshot(s => { S[key] = s.docs.map(d => Object.assign({}, d.data(), {id:d.id})); got[n] = 1; upd(); }, fail);
   const map = (n, key) => db.collection(n).onSnapshot(s => { S[key] = {}; s.docs.forEach(d => S[key][d.id] = d.data()); got[n] = 1; upd(); }, fail);
   arr('members','members'); arr('tx','tx'); arr('invest','invest'); arr('invtx','invtx'); arr('exp','exp');
-  map('auth','auth'); map('perms','perms'); map('decisions','decisions');
+  map('auth','auth'); map('perms','perms'); map('decisions','decisions'); arr('polls','polls'); arr('votes','votes'); arr('notices','notices');
+  if (S.platformAdmin) db.collection('pwreq').onSnapshot(s => { S.pwreqs = s.docs.map(d => d.data()); rerender(); }, () => {});
   if (S.platformAdmin) db.collection('requests').onSnapshot(s => { S.reqDocs = s.docs.map(d => d.data()); got.requests = 1; upd(); }, fail);
   else if (S.pid) db.doc('requests/' + S.pid).onSnapshot(s => { const v = s.exists ? s.data() : null; S.reqDocs = v ? [v] : []; got.requests = 1; upd(); }, () => { S.reqDocs = []; got.requests = 1; upd(); });
   else { S.reqDocs = []; got.requests = 1; }

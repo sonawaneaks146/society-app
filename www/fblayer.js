@@ -11,6 +11,7 @@
     if (!adminSub) {
       adminSub = true;
       S.db.collection('requests').onSnapshot(function (s) { S.reqDocs = s.docs.map(function (d) { return d.data(); }); checkPopup(); rerender(); }, function () { adminSub = false; });
+      S.db.collection('pwreq').onSnapshot(function (s) { S.pwreqs = s.docs.map(function (d) { return d.data(); }); rerender(); }, function () {});
     }
     checkPopup();
   }
@@ -39,7 +40,11 @@
   };
 
   window.revalidate = function () {
-    if (isAdminUser()) { S.platformAdmin = true; if (!S.me || S.me.uid !== 'admin') S.me = { uid: 'admin', role: 'admin', acc: 0, h: 'fb' }; return; }
+    if (isAdminUser()) {
+      /* an admin session is valid only if this page logged in (or has not been logged out by the app's auto-lock) */
+      if (S.me && S.me.uid === 'admin') { S.platformAdmin = true; return; }
+      auth.signOut(); return;
+    }
     if (S.me && S.me.uid === 'admin') { S.me = null; remember(null); return; }
     _revalidate();
   };
@@ -62,12 +67,12 @@
   auth.onAuthStateChanged(function (u) {
     if (!u) return;
     S.pid = u.uid;
-    if (u.email !== ADMIN && S.platformAdmin) { S.platformAdmin = false; S.reqDocs = []; adminSub = false; refreshAdmin(); rerender(); }
+    if (u.email !== ADMIN && S.platformAdmin) { S.platformAdmin = false; S.reqDocs = []; S.pwreqs = []; adminSub = false; refreshAdmin(); rerender(); }
   });
   document.addEventListener('click', function (ev) { if (ev.target.closest('[data-act=logout]') && isAdminUser()) auth.signOut(); }, true);
 
   /* backup + import (admin) */
-  var COLS = ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions'], backupText = null;
+  var COLS = ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices'], backupText = null;
   function snapshotAll() {
     var out = { _format: 'society-backup-v1' };
     var strip = function (x) { var d = Object.assign({}, x), id = d.id; delete d.id; return { id: id, data: d }; };
@@ -75,6 +80,7 @@
     out.auth = Object.keys(S.auth).filter(function (k) { return k !== 'admin'; }).map(function (k) { return { id: k, data: S.auth[k] }; });
     out.perms = Object.keys(S.perms).map(function (k) { return { id: k, data: S.perms[k] }; });
     out.decisions = Object.keys(S.decisions).map(function (k) { return { id: k, data: S.decisions[k] }; });
+    out.polls = S.polls.map(strip); out.votes = S.votes.map(strip); out.notices = S.notices.map(strip);
     out.settings = S.settingsDoc ? [{ id: 'main', data: S.settingsDoc }] : [];
     return out;
   }

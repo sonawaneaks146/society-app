@@ -55,7 +55,10 @@
   };
 
   var readyRes, authReady = new Promise(function (r) { readyRes = r; });
+  var firstAuth = true;
   auth.onAuthStateChanged(function (u) {
+    /* the admin must log in again every time the app is opened: drop any restored admin session first */
+    if (firstAuth) { firstAuth = false; if (u && u.email === ADMIN_EMAIL) { auth.signOut(); return; } }
     if (u) return readyRes(u);
     auth.signInAnonymously().catch(function (e) {
       fatal('Firebase मध्ये “Anonymous” साइन-इन चालू केलेले नाही. README मधील पायरी २ पाहा. (' + (e && e.code) + ')');
