@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin()  { return signedIn() && request.auth.token.email == 'admin@society.app'; }
+
+    // Online loan requests: the admin sees all; each member only their own document
+    // (the document id is the member's own Firebase user id).
+    match /requests/{pid} {
+      allow read, write: if isAdmin() || (signedIn() && request.auth.uid == pid);
+    }
+
+    // Login records: everyone signed in can read (needed to check passwords);
+    // a member may change a member login (own password change); only the admin touches "admin".
+    match /auth/{id} {
+      allow read: if signedIn();
+      allow write: if isAdmin() || (signedIn() && id != 'admin');
+    }
+
+    // Everything else: all signed-in users read, only the admin writes.
+    match /{col}/{id} {
+      allow read: if signedIn() && col in ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'settings'];
+      allow write: if isAdmin() && col in ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'settings'];
+    }
+  }
+}

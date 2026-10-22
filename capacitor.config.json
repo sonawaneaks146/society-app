@@ -1,0 +1,7 @@
+{
+  "appId": "com.sarvadnya.society",
+  "appName": "सर्वज्ञ सोसायटी",
+  "webDir": "www",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false }
+}

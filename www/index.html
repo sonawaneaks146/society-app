@@ -1,0 +1,1408 @@
+<!doctype html>
+<html lang="mr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0B4F4A">
+<style>:root{color-scheme:light;box-sizing:border-box}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script src="shim.js"></script>
+</head><body>
+<title>सर्वज्ञ सोसायटी</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600;700&family=Yatra+One&display=swap">
+<style>
+/* Layout: banking-style single column; sticky header, bottom tab bar (5 tabs) plus a "more" menu for the other windows. */
+:root{
+  --bg:#EEF2F1; --surface:#FFFFFF; --ink:#14232B; --muted:#5C6E75; --line:#D9E1E0;
+  --accent:#0E6B63; --accent-soft:#DCEFEC; --accent-ink:#FFFFFF;
+  --gold:#B7791F; --gold-soft:#F8EBD2; --bad:#B3261E; --bad-soft:#F8DEDB; --good:#1B7A47; --good-soft:#DAF0E3;
+  --hero1:#0B4F4A; --hero2:#12776E;
+  --f-disp:'Yatra One','Hind',sans-serif; --f-body:'Hind','Noto Sans Devanagari',system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C1517; --surface:#142225; --ink:#E6F0EE; --muted:#93A9A9; --line:#243639;
+  --accent:#4FC3B5; --accent-soft:#16353A; --accent-ink:#06201D;
+  --gold:#E3B15A; --gold-soft:#33291A; --bad:#F2877F; --bad-soft:#3A1E1C; --good:#6FD39A; --good-soft:#163425;
+  --hero1:#0F3B38; --hero2:#17665F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C1517; --surface:#142225; --ink:#E6F0EE; --muted:#93A9A9; --line:#243639;
+  --accent:#4FC3B5; --accent-soft:#16353A; --accent-ink:#06201D;
+  --gold:#E3B15A; --gold-soft:#33291A; --bad:#F2877F; --bad-soft:#3A1E1C; --good:#6FD39A; --good-soft:#163425;
+  --hero1:#0F3B38; --hero2:#17665F; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-block:0 92px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--hero1)}
+.wrap{max-width:560px;margin:0 auto}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;margin-inline:calc(-1*max(16px,env(safe-area-inset-left,0px))) calc(-1*max(16px,env(safe-area-inset-right,0px)));
+  padding:12px max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));background:var(--hero1);color:#fff}
+.top-in{max-width:560px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.brand{font-family:var(--f-disp);font-size:20px;line-height:1.15}
+.brand small{display:block;font-family:var(--f-body);font-size:12px;opacity:.8;margin-top:2px}
+.role{font-size:12px;font-weight:600;padding:3px 10px;border-radius:99px;background:rgba(255,255,255,.16);white-space:nowrap}
+
+.hero{margin-top:16px;border-radius:20px;padding:20px;background:linear-gradient(150deg,var(--hero1),var(--hero2));color:#fff}
+.hero .lbl{font-size:13px;opacity:.85}
+.hero .big{font-family:var(--f-disp);font-size:38px;line-height:1.1;margin:2px 0 14px}
+.hero .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.hero .cell{background:rgba(255,255,255,.12);border-radius:12px;padding:9px 12px;min-width:0}
+.hero .cell span{display:block;font-size:12px;opacity:.85}
+.hero .cell b{font-size:17px;font-weight:600}
+
+h2{font-family:var(--f-disp);font-weight:400;font-size:18px;margin:26px 0 10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+svg text{fill:var(--muted);font-family:var(--f-body)}
+
+.list{display:flex;flex-direction:column}
+.item{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid var(--line);width:100%;background:none;border-left:0;border-right:0;border-top:0;text-align:left}
+.item:last-child{border-bottom:0}
+.av{flex:none;width:40px;height:40px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:14px}
+.acc{flex:none;min-width:42px;height:42px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-weight:700;font-size:15px}
+.mid{flex:1;min-width:0}
+.mid b{display:block;font-weight:600;overflow-wrap:anywhere}
+.mid small{color:var(--muted);font-size:12.5px;overflow-wrap:anywhere}
+.amt{text-align:right;font-weight:600;white-space:nowrap}
+.amt small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.pos{color:var(--good)} .neg{color:var(--gold)} .due{color:var(--bad)}
+.pill{display:inline-block;font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:99px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.good{background:var(--good-soft);color:var(--good)} .pill.gold{background:var(--gold-soft);color:var(--gold)}
+
+.bars .b{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;margin:10px 0}
+.bars .b span{overflow-wrap:anywhere;font-size:13.5px}
+.bars .b em{font-style:normal;font-weight:600;font-size:13.5px}
+.bars .track{grid-column:1/-1;height:8px;border-radius:99px;background:var(--line);overflow:hidden}
+.bars .fill{height:100%;background:var(--gold);border-radius:99px}
+
+.search,label+input,input,select,textarea{width:100%}
+.search{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface);margin-top:16px}
+label{display:block;font-size:13px;color:var(--muted);margin:12px 0 4px}
+input,select,textarea{padding:11px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+input[type=checkbox]{width:22px;height:22px;padding:0;flex:none;accent-color:var(--accent)}
+.seg{display:grid;gap:6px;background:var(--bg);padding:4px;border-radius:12px;margin-top:4px}
+.seg button{border:0;border-radius:9px;padding:9px 4px;background:none;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn{width:100%;margin-top:16px;padding:13px;border:0;border-radius:12px;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:16px}
+.btn.alt{background:var(--accent-soft);color:var(--accent)}
+.btn.sm{width:auto;margin:0;padding:6px 12px;font-size:13px;border-radius:9px}
+.btn.danger{background:var(--bad);color:#fff}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.hint{font-size:12.5px;color:var(--muted);margin-top:6px}
+.note{padding:12px 14px;border-radius:12px;background:var(--gold-soft);color:var(--ink);font-size:13.5px;margin-top:16px}
+.msg{margin-top:12px;padding:10px 12px;border-radius:10px;background:var(--bad-soft);color:var(--bad);font-weight:600;font-size:14px}
+.empty{text-align:center;padding:30px 12px;color:var(--muted)}
+.empty b{display:block;color:var(--ink);font-family:var(--f-disp);font-weight:400;font-size:18px;margin-bottom:6px}
+.row-b{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+.mon{margin-top:12px}
+.mon-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.mon-h b{font-family:var(--f-disp);font-weight:400;font-size:17px}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin-top:10px}
+.kv div{min-width:0}.kv span{display:block;font-size:12px;color:var(--muted)}.kv b{font-weight:600}
+.kv3{grid-template-columns:1fr 1fr 1fr}
+
+.sum2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.sum2 .card b{display:block;font-family:var(--f-disp);font-weight:400;font-size:15px;margin-bottom:4px}
+.sum2 .card small{color:var(--muted);font-size:12.5px}
+.sum2 .card .big2{font-size:20px;font-weight:700}
+.stl{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:5px;font-size:13px}
+.stl .k{color:var(--muted);min-width:62px}
+.stl small{color:var(--muted);font-size:12px}
+.qk{border:1px solid var(--line);background:var(--surface);color:var(--accent);border-radius:8px;padding:2px 9px;font-size:12px;font-weight:600}
+
+.tw{overflow-x:auto;margin-top:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.tw table{border-collapse:collapse;width:100%;font-size:13px}
+.tw th{background:var(--accent-soft);color:var(--accent);text-align:left;padding:8px 10px;white-space:nowrap;font-weight:700}
+.tw td{padding:7px 10px;border-top:1px solid var(--line);vertical-align:top}
+.tw .r{text-align:right;white-space:nowrap}
+.tw tfoot td{font-weight:700;background:var(--bg)}
+
+.chk{display:flex;align-items:center;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;margin:0;color:var(--ink)}
+.chk:last-child{border-bottom:0}
+.menu .item{padding:14px 4px}
+.menu .ic{flex:none;width:38px;height:38px;border-radius:12px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.menu .ic svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.back{border:0;background:var(--accent-soft);color:var(--accent);font-weight:600;border-radius:99px;padding:6px 14px;margin-top:16px}
+
+.gate{margin-top:28px}
+.gate h1{font-family:var(--f-disp);font-weight:400;font-size:24px;margin:0 0 4px}
+.gate p{color:var(--muted);margin:0 0 6px}
+.cred{width:100%;min-height:160px;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.6}
+
+.sheet{position:fixed;inset:0;z-index:40;background:var(--bg);overflow-y:auto;padding-bottom:40px}
+.sheet-top{position:sticky;top:0;background:var(--hero1);color:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 12px max(16px,env(safe-area-inset-left,0px));display:flex;gap:12px;align-items:center}
+.sheet-top button{border:0;background:rgba(255,255,255,.16);color:#fff;border-radius:99px;padding:6px 14px;font-weight:600}
+.sheet-in{max-width:560px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-right,0px)) 0 max(16px,env(safe-area-inset-left,0px))}
+a.btn{display:block;text-align:center;text-decoration:none}
+
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:25;background:var(--surface);border-top:1px solid var(--line);
+  padding:6px max(8px,env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) max(8px,env(safe-area-inset-left,0px))}
+.tabs-in{max-width:560px;margin:0 auto;display:flex;gap:4px}
+.tabs button{flex:1;border:0;background:none;padding:8px 2px;border-radius:12px;font-size:12.5px;font-weight:600;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:3px;position:relative}
+.tabs button svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tabs button[aria-current="true"]{color:var(--accent);background:var(--accent-soft)}
+.dot{position:absolute;top:4px;right:calc(50% - 20px);min-width:17px;height:17px;border-radius:99px;background:var(--bad);color:#fff;font-size:11px;display:grid;place-items:center;padding:0 4px}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-weight:600;z-index:80;max-width:90%;text-align:center}
+.dim{opacity:.5;filter:grayscale(.6)} .dim input:disabled,input:disabled{background:var(--bg);color:var(--muted)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.card.total{position:sticky;bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:15;margin-top:14px;background:var(--hero1);color:#fff;border-color:var(--hero1);display:grid;gap:2px}
+.card.total b{font-family:var(--f-disp);font-size:26px;font-weight:400}.card.total small{opacity:.85;font-size:12.5px}
+</style>
+
+<div class="top"><div class="top-in">
+  <div class="brand">सर्वज्ञ सोसायटी<small>दत्तवाडी, मानेगाव</small></div>
+  <button class="role" id="role" style="border:0;color:#fff;font-family:inherit">…</button>
+</div></div>
+<div class="wrap"><main id="view"></main></div>
+<nav class="tabs"><div class="tabs-in" id="tabs"></div></nav>
+<div id="sheet" hidden></div>
+<div id="confirm" hidden></div>
+<div id="popup" hidden></div>
+<div id="toast" class="toast" hidden></div>
+<script>
+/* ================= constants ================= */
+const MONTHS = ['जानेवारी','फेब्रुवारी','मार्च','एप्रिल','मे','जून','जुलै','ऑगस्ट','सप्टेंबर','ऑक्टोबर','नोव्हेंबर','डिसेंबर'];
+const MSHORT = ['जाने','फेब्रु','मार्च','एप्रि','मे','जून','जुलै','ऑग','सप्टें','ऑक्टो','नोव्हें','डिसें'];
+const TYPE = {inst:'मासिक बचत', loan:'कर्ज दिले', repay:'हप्ता भरला', bonus:'बोनस'};
+const MODES = ['रोख','UPI','बँक','चेक'];
+const INV_CATS = ['बँक एफडी','आरडी / मासिक योजना','शेअर बाजार','म्युच्युअल फंड','सोने','इतर'];
+const EXP_CATS = ['स्टेशनरी / कागदपत्रे','बैठक / चहापान','बँक शुल्क','प्रवास / वाहतूक','कार्यक्रम','इतर'];
+const PERMS = [
+  ['members','सर्व सभासदांची यादी पाहणे'],
+  ['passbooks','इतर सभासदांचे पासबुक पाहणे'],
+  ['status','भरणा स्थिती पाहणे'],
+  ['loans','कर्ज नोंदवही पाहणे'],
+  ['apply','कर्जासाठी ऑनलाइन अर्ज करणे'],
+  ['tally','मासिक ताळेबंद पाहणे'],
+  ['invest','गुंतवणूक पाहणे'],
+  ['expenses','खर्च पाहणे'],
+  ['bonus','बोनस पाहणे'],
+  ['reports','अहवाल पाहणे'],
+  ['pdf','पासबुक PDF / WhatsApp शेअर करणे']
+];
+const DEFAULT_P = Object.fromEntries(PERMS.map(([k]) => [k, true]));
+const DEF_SET = {startMonth:'', shares:[{from:'2000-01', amt:1000}], rate:2, slabs:[[0,2000],[10000,2500],[20000,3000]]};
+const svg = p => `<svg viewBox="0 0 24 24">${p}</svg>`;
+const ICON = {
+  home: svg('<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>'),
+  people: svg('<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3.2 3.2 0 010 5.6M18 14.3c1.8.8 3 2.6 3 4.7"/>'),
+  month: svg('<rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/>'),
+  edit: svg('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4z"/>'),
+  user: svg('<circle cx="12" cy="8" r="3.6"/><path d="M4.5 20c0-4 3.4-6.5 7.5-6.5s7.5 2.5 7.5 6.5"/>'),
+  check: svg('<path d="M9 11l3 3 8-9"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V7a2 2 0 012-2h9"/>'),
+  loan: svg('<circle cx="12" cy="12" r="8.5"/><path d="M8.5 8h7M8.5 11.5h7M10 8c3.8 0 3.8 4.5 0 4.5H9l5 3.5"/>'),
+  invest: svg('<path d="M3 17l6-6 4 4 8-9"/><path d="M15 6h6v6"/>'),
+  expense: svg('<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>'),
+  gift: svg('<rect x="3" y="9" width="18" height="12" rx="1.5"/><path d="M12 9v12M3 13h18"/><path d="M12 9C9 9 8 4 11 4c2 0 1 5 1 5zM12 9c3 0 4-5 1-5-2 0-1 5-1 5z"/>'),
+  report: svg('<path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h6M9 17h6"/>'),
+  gear: svg('<circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>'),
+  shield: svg('<path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/>'),
+  key: svg('<circle cx="8" cy="15" r="4"/><path d="M11 12l9-9M16 7l3 3"/>'),
+  more: svg('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>')
+};
+
+/* ================= state ================= */
+const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0'); };
+const S = {
+  members:[], tx:[], invest:[], invtx:[], exp:[], auth:{}, perms:{}, reqDocs:[], decisions:{}, settingsDoc:null,
+  me:null, pid:null, platformAdmin:false, admin:false, creds:null, fails:0, lockUntil:0, loginMsg:'',
+  tab:'home', sel:null, pbFy:'all', ready:false, db:null, dl:null, err:null,
+  type:'inst', q:'', openMonth:null, statusMonth:null, sfilter:'all', prefill:null, confirm:null, confirmDel:null,
+  rp:{period:'fy', fy:null, month:today().slice(0,7), from:'', to:'', kind:'summary', acc:''},
+  expFy:'cur', popShown:false, lastPend:0, C:null, prevTab:null, loanType:'inst', en:{}, ln:{}, edit:null, fromReq:null
+};
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = n => (n < 0 ? '−₹' : '₹') + Math.round(Math.abs(n)).toLocaleString('en-IN');
+const mlabel = k => { const [y,m] = k.split('-'); return MONTHS[+m-1] + ' ' + y; };
+const dlabel = d => { const [y,m,dd] = d.split('-'); return +dd + ' ' + MONTHS[+m-1] + ' ' + y; };
+const initials = n => { const p = String(n).trim().split(/\s+/); return (p[0]?.[0] || '') + (p[p.length-1]?.[0] || ''); };
+const uidFor = acc => 'm' + String(acc).padStart(3,'0');
+const nameOf = acc => { const m = S.members.find(x => x.acc === acc); return m ? m.name : 'खाते ' + acc; };
+const sumBy = (arr, f) => arr.reduce((a,e) => a + f(e), 0);
+const fyStart = d => { const y = +d.slice(0,4), m = +d.slice(5,7); return m >= 4 ? y : y - 1; };
+const fyLabel = sy => sy + '-' + String(sy + 1).slice(2);
+const fyRange = sy => [sy + '-04-01', (sy + 1) + '-03-31'];
+const curFy = () => fyStart(today());
+function fyOptions(){
+  const ds = [...S.tx.map(t => t.date), ...S.exp.map(e => e.date), ...S.invest.map(i => i.start), ...S.invtx.map(i => i.date)].sort();
+  const mn = ds.length ? fyStart(ds[0]) : curFy(), out = [];
+  for (let y = curFy(); y >= Math.min(mn, curFy()); y--) out.push(y);
+  return out;
+}
+function monthKeys(a, b){
+  const out = []; let y = +a.slice(0,4), m = +a.slice(5,7);
+  for (;;){ const k = y + '-' + String(m).padStart(2,'0'); out.push(k); if (k >= b || out.length > 1200) break; m++; if (m > 12){ m = 1; y++; } }
+  return out;
+}
+function addMonths(d, i){
+  let y = +d.slice(0,4), m = +d.slice(5,7) - 1 + i; const day = Math.min(+d.slice(8,10), 28);
+  y += Math.floor(m / 12); m = ((m % 12) + 12) % 12;
+  return y + '-' + String(m + 1).padStart(2,'0') + '-' + String(day).padStart(2,'0');
+}
+/* settings: share history, slabs, default rate */
+const cfg = () => Object.assign({}, DEF_SET, S.settingsDoc || {});
+function shareFor(k){
+  const arr = [...(cfg().shares && cfg().shares.length ? cfg().shares : DEF_SET.shares)].sort((a,b) => a.from < b.from ? -1 : 1);
+  let a = arr[0].amt; arr.forEach(s => { if (s.from <= k) a = s.amt; }); return a;
+}
+function slabFor(v){
+  if (v <= 0) return 0;
+  const sl = [...(cfg().slabs && cfg().slabs.length ? cfg().slabs : DEF_SET.slabs)].sort((a,b) => a[0] - b[0]);
+  let a = sl[0][1]; sl.forEach(s => { if (v >= s[0]) a = s[1]; }); return a;
+}
+/* hapta slab is decided by the highest loan balance of the current loan cycle and stays until the loan is fully repaid */
+const haptaFor = (out, peak) => out <= 0 ? 0 : Math.min(out, slabFor(Math.max(out, peak || 0)));
+/* permissions */
+const permsOf = uid => Object.assign({}, DEFAULT_P, (S.perms[uid] && S.perms[uid].p) || {});
+const can = k => !!S.me && (S.admin || permsOf(S.me.uid)[k] !== false);
+
+/* ================= events & totals ================= */
+function addMonthsEntries(upTo){
+  const out = [];
+  S.invest.forEach(p => {
+    if (p.mode === 'monthly'){
+      for (let i = 0; i < 600; i++){ const d = addMonths(p.start, i); if (d > upTo) break; if (p.end && d.slice(0,7) > p.end) break; out.push({date:d, amt:p.amount, plan:p}); }
+    } else if (p.start <= upTo) out.push({date:p.start, amt:p.amount, plan:p});
+  });
+  return out;
+}
+function eventsAll(){
+  const ev = [], plans = {}; S.invest.forEach(p => plans[p.id] = p);
+  S.tx.forEach(t => {
+    const b = {date:t.date, ts:t.ts || 0, acc:t.acc, note:t.note || '', id:t.id, col:'tx', mode:t.mode};
+    if (t.type === 'inst'){ const c = t.cash ?? t.amt; ev.push({...b, kind:'inst', amt:t.amt, cash:c, adj:c - t.amt}); }
+    else if (t.type === 'loan') ev.push({...b, kind:'loan', amt:t.amt, rate:t.rate, cash:-t.amt, adj:0});
+    else if (t.type === 'repay'){ const i = t.int || 0, c = t.cash ?? (t.amt + i); ev.push({...b, kind:'repay', amt:t.amt, int:i, cash:c, adj:t.adj != null ? t.adj : c - (t.amt + i)}); }
+    else if (t.type === 'bonus') ev.push({...b, kind:'bonus', amt:t.amt, reason:t.reason || '', grp:t.grp, cash:-t.amt, adj:0});
+  });
+  S.exp.forEach(e => ev.push({date:e.date, ts:e.ts || 0, kind:'exp', amt:e.amt, cat:e.cat, note:e.note || '', cash:-e.amt, adj:0, id:e.id, col:'exp'}));
+  addMonthsEntries(today()).forEach(e => ev.push({date:e.date, ts:0, kind:'invest', amt:e.amt, name:e.plan.name, cat:e.plan.cat, planId:e.plan.id, cash:-e.amt, adj:0}));
+  S.invtx.forEach(e => { const p = plans[e.planId]; ev.push({date:e.date, ts:e.ts || 0, kind:e.kind === 'int' ? 'invint' : 'invret', amt:e.amt, name:p ? p.name : '?', planId:e.planId, note:e.note || '', cash:e.amt, adj:0, id:e.id, col:'invtx'}); });
+  ev.sort((a,b) => a.date < b.date ? -1 : a.date > b.date ? 1 : (a.ts - b.ts));
+  return ev;
+}
+function compute(){
+  const ev = eventsAll(), per = {}, months = {};
+  const T = {inst:0, loan:0, prin:0, int:0, bonus:0, exp:0, inv:0, invint:0, invret:0, adj:0};
+  const mk = acc => ({acc, inst:0, loan:0, prin:0, int:0, bonus:0, out:0, credit:0, rate:cfg().rate});
+  S.members.forEach(m => per[m.acc] = mk(m.acc));
+  const mo = k => months[k] || (months[k] = {k, cashNet:0, inst:0, loan:0, prin:0, int:0, bonus:0, exp:0, inv:0, invint:0, invret:0, adj:0, n:0});
+  let cash = 0;
+  ev.forEach(e => {
+    const m = mo(e.date.slice(0,7)); cash += e.cash; m.cashNet += e.cash;
+    const p = e.acc != null ? (per[e.acc] || (per[e.acc] = mk(e.acc))) : null;
+    if (e.kind === 'inst'){ p.inst += e.amt; p.credit += e.adj; T.inst += e.amt; m.inst += e.amt; m.adj += e.adj; T.adj += e.adj; m.n++; }
+    else if (e.kind === 'loan'){ p.loan += e.amt; if (e.rate) p.rate = e.rate; T.loan += e.amt; m.loan += e.amt; }
+    else if (e.kind === 'repay'){ p.prin += e.amt; p.int += e.int; p.credit += e.adj; T.prin += e.amt; T.int += e.int; m.prin += e.amt; m.int += e.int; m.adj += e.adj; T.adj += e.adj; }
+    else if (e.kind === 'bonus'){ p.bonus += e.amt; T.bonus += e.amt; m.bonus += e.amt; }
+    else if (e.kind === 'exp'){ T.exp += e.amt; m.exp += e.amt; }
+    else if (e.kind === 'invest'){ T.inv += e.amt; m.inv += e.amt; }
+    else if (e.kind === 'invint'){ T.invint += e.amt; m.invint += e.amt; }
+    else if (e.kind === 'invret'){ T.invret += e.amt; m.invret += e.amt; }
+  });
+  Object.values(per).forEach(p => p.out = p.loan - p.prin);
+  const keys = Object.keys(months).sort(); let c2 = 0, o2 = 0;
+  keys.forEach(k => { const m = months[k]; m.delta = m.cashNet; c2 += m.delta; o2 += m.loan - m.prin; m.cash = c2; m.out = o2; });
+  return {ev, per, months, keys, T, cash, out:T.loan - T.prin, credit:sumBy(Object.values(per), p => p.credit), investNet:T.inv - T.invret};
+}
+
+/* ================= month status with arrears (carry-forward) ================= */
+function startKey(){ const c = cfg().startMonth; if (c) return c; const ks = S.tx.map(t => t.date.slice(0,7)).sort(); return ks[0] || today().slice(0,7); }
+function aggTx(){
+  const g = {};
+  S.tx.forEach(t => {
+    const a = g[t.acc] || (g[t.acc] = {}), k = t.date.slice(0,7), m = a[k] || (a[k] = {inst:0, prin:0, int:0, loan:0, adj:0, rate:0, nRep:0});
+    if (t.type === 'inst'){ m.inst += t.amt; m.adj += (t.cash ?? t.amt) - t.amt; }
+    else if (t.type === 'loan'){ m.loan += t.amt; if (t.rate) m.rate = t.rate; }
+    else if (t.type === 'repay'){ m.prin += t.amt; m.int += (t.int || 0); m.nRep++; m.adj += t.adj != null ? t.adj : (t.cash ?? (t.amt + (t.int || 0))) - (t.amt + (t.int || 0)); }
+  });
+  return g;
+}
+function statusFor(k){
+  const g = aggTx(), s0 = startKey(), keys = monthKeys(s0 <= k ? s0 : k, k);
+  return S.members.slice().sort((a,b) => a.acc - b.acc).map(m => {
+    const a = g[m.acc] || {}; let out = 0, peak = 0, sC = 0, hC = 0, credit = 0, rate = cfg().rate, r = null; const j = m.joined || '';
+    for (const key of keys){
+      const x = a[key] || {inst:0, prin:0, int:0, loan:0, adj:0, rate:0, nRep:0};
+      if (out > 0) peak = Math.max(peak, out);
+      const sDue = (j && key < j) ? 0 : shareFor(key), sTot = sDue + sC;
+      const slab = out > 0 ? slabFor(peak) : 0, hDue = out > 0 ? Math.min(out, slab) : 0, hTot = out > 0 ? Math.min(out, hDue + hC) : 0;
+      const iDue = Math.round(out * rate / 100);
+      const outA = out + x.loan, pkA = Math.max(peak, outA), outE = outA - x.prin, rateE = x.rate || rate;
+      if (key === k) r = {m, sDue, sArr:sC, sTot, sPaid:x.inst, hDue, hArr:out > 0 ? hC : 0, hTot, hPaid:x.prin, iDue, iPaid:x.int, nRep:x.nRep, out, peak, rate, rateEnd:rateE, loanNow:x.loan, credit:credit + x.adj, slab, outEnd:outE, peakEnd:outE > 0 ? pkA : 0};
+      sC = sTot - x.inst; hC = Math.max(0, hTot - x.prin);
+      out = outE; peak = outE > 0 ? pkA : 0; rate = rateE; credit += x.adj;
+    }
+    r.sRem = Math.max(0, r.sTot - r.sPaid); r.hRem = Math.max(0, r.hTot - r.hPaid); r.iTot = r.iDue; r.iArr = 0; r.iRem = Math.max(0, r.iDue - r.iPaid);
+    r.sh = r.sTot <= 0 || r.sPaid >= r.sTot ? 'paid' : r.sPaid > 0 ? 'part' : 'pend';
+    r.hs = (r.hTot <= 0 && r.nRep === 0 && r.iDue <= 0) ? 'none' : (r.hRem <= 0 && r.iRem <= 0) ? 'paid' : (r.hPaid > 0 || r.iPaid > 0 || r.nRep > 0) ? 'part' : 'pend';
+    return r;
+  });
+}
+function loanInfo(acc){
+  const r = statusFor(today().slice(0,7)).find(x => x.m.acc === acc);
+  return r ? {out:r.outEnd, peak:r.peakEnd, hapta:r.outEnd > 0 ? Math.min(r.outEnd, slabFor(r.peakEnd)) : 0, rate:r.rateEnd} : {out:0, peak:0, hapta:0, rate:cfg().rate};
+}
+
+/* ================= requests (online loan applications) ================= */
+function allRequests(){
+  const out = [];
+  S.reqDocs.forEach(d => (d.list || []).forEach(r => out.push(Object.assign({}, r, {pid:d.pid, acc:d.acc, uid:d.uid}))));
+  out.sort((a,b) => b.ts - a.ts);
+  return out.map(r => { const dec = S.decisions[r.id]; return Object.assign(r, {status:dec ? dec.status : 'pending', dnote:dec ? (dec.note || '') : ''}); });
+}
+
+/* ================= reports ================= */
+function rpRange(){
+  const r = S.rp;
+  if (r.period === 'all') return ['0000-01-01', '9999-12-31', 'सर्व कालावधी'];
+  if (r.period === 'fy'){ const sy = +(r.fy || curFy()); const [a,b] = fyRange(sy); return [a, b, 'आर्थिक वर्ष ' + fyLabel(sy)]; }
+  if (r.period === 'month'){ const k = r.month || today().slice(0,7); const [y,m] = k.split('-').map(Number); const last = new Date(y, m, 0).getDate(); return [k + '-01', k + '-' + String(last).padStart(2,'0'), mlabel(k)]; }
+  return [r.from || '0000-01-01', r.to || '9999-12-31', (r.from ? dlabel(r.from) : 'सुरुवात') + ' ते ' + (r.to ? dlabel(r.to) : 'आजपर्यंत')];
+}
+function evLabel(e){
+  if (e.kind === 'inst') return 'मासिक बचत' + (e.adj > 0 ? ' (जास्तीचे ' + inr(e.adj) + ' क्रेडिटमध्ये)' : e.adj < 0 ? ' (क्रेडिटमधून ' + inr(-e.adj) + ' वापरले)' : '');
+  if (e.kind === 'loan') return 'कर्ज दिले' + (e.rate ? ' (' + e.rate + '%)' : '');
+  if (e.kind === 'repay') return 'हप्ता: मुद्दल ' + inr(e.amt) + ' + व्याज ' + inr(e.int) + (e.adj > 0 ? ' (जास्तीचे ' + inr(e.adj) + ' क्रेडिटमध्ये)' : e.adj < 0 ? ' (क्रेडिटमधून ' + inr(-e.adj) + ' वापरले)' : '');
+  if (e.kind === 'bonus') return 'बोनस' + (e.reason ? ' · ' + e.reason : '');
+  if (e.kind === 'exp') return 'खर्च · ' + (e.cat || '') + (e.note ? ' · ' + e.note : '');
+  if (e.kind === 'invest') return 'गुंतवणूक · ' + e.name;
+  if (e.kind === 'invint') return 'गुंतवणूक व्याज · ' + e.name;
+  return 'गुंतवणूक परत · ' + e.name;
+}
+function buildReport(C){
+  const [from, to, plabel] = rpRange(), kind = S.rp.kind, acc = +S.rp.acc || 0;
+  const E = C.ev.filter(e => e.date >= from && e.date <= to), EA = acc ? E.filter(e => e.acc === acc) : E;
+  const up = C.ev.filter(e => e.date <= to), S_ = (arr, k) => sumBy(arr.filter(e => e.kind === k), e => e.amt);
+  const rep = {title:'', sub:plabel, sum:[], cols:[], rows:[], foot:null};
+  if (acc && ['datewise','loan','interest','share'].includes(kind)) rep.sub += ' · खाते ' + acc + ' ' + nameOf(acc);
+  const mem = S.members.slice().sort((a,b) => a.acc - b.acc);
+  if (kind === 'summary'){
+    rep.title = 'सोसायटी ताळेबंद (सारांश)';
+    const openCash = sumBy(C.ev.filter(e => e.date < from), e => e.cash);
+    const inst = S_(E,'inst'), prin = S_(E,'repay'), int = sumBy(E.filter(e => e.kind === 'repay'), e => e.int);
+    const invint = S_(E,'invint'), invret = S_(E,'invret'), loan = S_(E,'loan'), exp = S_(E,'exp'), bonus = S_(E,'bonus'), inv = S_(E,'invest'), adj = sumBy(E, e => e.adj);
+    const close = openCash + sumBy(E, e => e.cash);
+    rep.cols = [['तपशील', 3, 'l'], ['रक्कम', 1.2, 'r']];
+    rep.rows = [['सुरुवातीची शिल्लक', inr(openCash)], ['+ मासिक बचत जमा', inr(inst)], ['+ मुद्दल वसुली', inr(prin)], ['+ कर्जावरील व्याज', inr(int)],
+      ['+ गुंतवणुकीवरील व्याज', inr(invint)], ['+ गुंतवणूक परत मिळाली', inr(invret)], ['+/− क्रेडिट (जास्तीची / वापरलेली रक्कम)', inr(adj)],
+      ['− कर्ज दिले', inr(loan)], ['− खर्च', inr(exp)], ['− बोनस वाटप', inr(bonus)], ['− नवीन गुंतवणूक', inr(inv)]];
+    rep.foot = ['शेवटची शिल्लक', inr(close)];
+    rep.sum = [['येणे कर्ज (अखेर)', inr(S_(up,'loan') - S_(up,'repay'))], ['एकूण बचत (अखेर)', inr(S_(up,'inst'))],
+      ['चालू गुंतवणूक (अखेर)', inr(S_(up,'invest') - S_(up,'invret'))], ['सभासदांचे क्रेडिट (अखेर)', inr(sumBy(up, e => e.adj))]];
+  } else if (kind === 'monthwise'){
+    rep.title = 'महिनावार अहवाल';
+    const g = {}; E.forEach(e => { const k = e.date.slice(0,7), m = g[k] || (g[k] = {inst:0, loan:0, prin:0, int:0, invint:0, exp:0, bonus:0, net:0}); m.net += e.cash;
+      if (e.kind === 'inst') m.inst += e.amt; else if (e.kind === 'loan') m.loan += e.amt; else if (e.kind === 'repay'){ m.prin += e.amt; m.int += e.int; }
+      else if (e.kind === 'invint') m.invint += e.amt; else if (e.kind === 'exp') m.exp += e.amt; else if (e.kind === 'bonus') m.bonus += e.amt; });
+    rep.cols = [['महिना',2.2,'l'],['बचत',1.2,'r'],['कर्ज',1.2,'r'],['मुद्दल',1.2,'r'],['व्याज',1,'r'],['गुं.व्याज',1,'r'],['खर्च',1,'r'],['बोनस',1,'r'],['निव्वळ',1.3,'r']];
+    const ks = Object.keys(g).sort(), tot = {inst:0, loan:0, prin:0, int:0, invint:0, exp:0, bonus:0, net:0};
+    rep.rows = ks.map(k => { const m = g[k]; Object.keys(tot).forEach(x => tot[x] += m[x]); return [mlabel(k), inr(m.inst), inr(m.loan), inr(m.prin), inr(m.int), inr(m.invint), inr(m.exp), inr(m.bonus), inr(m.net)]; });
+    rep.foot = ['एकूण', inr(tot.inst), inr(tot.loan), inr(tot.prin), inr(tot.int), inr(tot.invint), inr(tot.exp), inr(tot.bonus), inr(tot.net)];
+  } else if (kind === 'datewise'){
+    rep.title = 'तारखेनुसार नोंदवही';
+    rep.cols = [['तारीख',1.6,'l'],['तपशील',4,'l'],['खाते',2.6,'l'],['जमा',1.3,'r'],['नावे',1.3,'r']];
+    let a = 0, b = 0;
+    rep.rows = EA.map(e => { if (e.cash > 0) a += e.cash; else b -= e.cash; return [dlabel(e.date), evLabel(e), e.acc != null ? e.acc + ' ' + nameOf(e.acc) : '', e.cash > 0 ? inr(e.cash) : '', e.cash < 0 ? inr(-e.cash) : '']; });
+    rep.foot = ['एकूण', '', '', inr(a), inr(b)];
+  } else if (kind === 'memberwise'){
+    rep.title = 'सभासदनिहाय अहवाल';
+    rep.cols = [['खाते',.9,'l'],['नाव',3.4,'l'],['बचत',1.2,'r'],['कर्ज',1.2,'r'],['मुद्दल',1.2,'r'],['व्याज',1,'r'],['बोनस',1,'r'],['येणे कर्ज',1.3,'r']];
+    const t = [0,0,0,0,0,0];
+    rep.rows = mem.map(m => { const x = E.filter(e => e.acc === m.acc), u = up.filter(e => e.acc === m.acc);
+      const v = [S_(x,'inst'), S_(x,'loan'), S_(x,'repay'), sumBy(x.filter(e => e.kind === 'repay'), e => e.int), S_(x,'bonus'), S_(u,'loan') - S_(u,'repay')]; v.forEach((n,i) => t[i] += n);
+      return [m.acc, m.name, ...v.map(inr)]; });
+    rep.foot = ['', 'एकूण', ...t.map(inr)];
+  } else if (kind === 'share'){
+    rep.title = 'बचत (शेअर) अहवाल';
+    rep.cols = [['खाते',.9,'l'],['नाव',3.6,'l'],['कालावधीतील बचत',1.8,'r'],['एकूण बचत (अखेर)',1.8,'r']];
+    let a = 0, b = 0;
+    rep.rows = mem.filter(m => !acc || m.acc === acc).map(m => { const p = S_(E.filter(e => e.acc === m.acc),'inst'), q = S_(up.filter(e => e.acc === m.acc),'inst'); a += p; b += q; return [m.acc, m.name, inr(p), inr(q)]; });
+    rep.foot = ['', 'एकूण', inr(a), inr(b)];
+  } else if (kind === 'loan'){
+    rep.title = 'कर्ज अहवाल';
+    rep.cols = [['तारीख',1.7,'l'],['खाते',.9,'l'],['नाव',3.2,'l'],['कर्ज रक्कम',1.5,'r'],['दर %',.9,'r']];
+    const L = EA.filter(e => e.kind === 'loan');
+    rep.rows = L.map(e => [dlabel(e.date), e.acc, nameOf(e.acc), inr(e.amt), e.rate ? e.rate + '%' : '']);
+    rep.foot = ['एकूण', '', '', inr(sumBy(L, e => e.amt)), ''];
+    rep.sum = [['येणे कर्ज (अखेर)', inr(S_(up,'loan') - S_(up,'repay'))], ['कर्ज घेतलेले सभासद', String(new Set(L.map(e => e.acc)).size)]];
+  } else if (kind === 'interest'){
+    rep.title = 'व्याज अहवाल';
+    rep.cols = [['खाते',.9,'l'],['नाव',3.8,'l'],['कर्जावरील व्याज',2,'r']];
+    let a = 0;
+    rep.rows = mem.filter(m => !acc || m.acc === acc).map(m => { const v = sumBy(E.filter(e => e.kind === 'repay' && e.acc === m.acc), e => e.int); a += v; return [m.acc, m.name, inr(v)]; }).filter(r => r[2] !== '₹0' || acc);
+    const iv = acc ? 0 : S_(E,'invint');
+    if (!acc){ rep.rows.push(['', 'गुंतवणुकीवरील व्याज', inr(iv)]); }
+    rep.foot = ['', 'एकूण व्याज उत्पन्न', inr(a + iv)];
+  } else if (kind === 'expense'){
+    rep.title = 'खर्च अहवाल';
+    rep.cols = [['तारीख',1.7,'l'],['प्रकार',2.4,'l'],['तपशील',3,'l'],['रक्कम',1.5,'r']];
+    const X = E.filter(e => e.kind === 'exp');
+    rep.rows = X.map(e => [dlabel(e.date), e.cat || '', e.note || '', inr(e.amt)]);
+    rep.foot = ['एकूण', '', '', inr(sumBy(X, e => e.amt))];
+    const byCat = {}; X.forEach(e => byCat[e.cat || 'इतर'] = (byCat[e.cat || 'इतर'] || 0) + e.amt);
+    rep.sum = Object.entries(byCat).map(([k,v]) => [k, inr(v)]);
+  } else if (kind === 'invest'){
+    rep.title = 'गुंतवणूक अहवाल';
+    rep.cols = [['गुंतवणूक',3,'l'],['प्रकार',1.5,'l'],['गुंतवले',1.4,'r'],['व्याज',1.2,'r'],['परत',1.2,'r'],['चालू (अखेर)',1.5,'r']];
+    const t = [0,0,0,0];
+    rep.rows = S.invest.map(p => { const mine = e => e.planId === p.id, x = E.filter(mine), u = up.filter(mine);
+      const v = [S_(x,'invest'), S_(x,'invint'), S_(x,'invret'), S_(u,'invest') - S_(u,'invret')]; v.forEach((n,i) => t[i] += n);
+      return [p.name + ' (' + (p.cat || '') + ')', p.mode === 'monthly' ? 'दर महिना' : 'एकदा', ...v.map(inr)]; });
+    rep.foot = ['एकूण', '', ...t.map(inr)];
+  }
+  return rep;
+}
+function pbReport(acc, fy){
+  const C = S.C, m = S.members.find(x => x.acc === acc), [from, to] = fy === 'all' ? ['0000-01-01', '9999-12-31'] : fyRange(+fy);
+  const label = fy === 'all' ? 'सर्व कालावधी' : 'आर्थिक वर्ष ' + fyLabel(+fy);
+  const mine = C.ev.filter(e => e.acc === acc && ['inst','loan','repay','bonus'].includes(e.kind));
+  let out = 0, rows = [], t = [0,0,0,0,0];
+  mine.forEach(e => {
+    if (e.kind === 'loan') out += e.amt; else if (e.kind === 'repay') out -= e.amt;
+    if (e.date < from || e.date > to) return;
+    const r = [dlabel(e.date), evLabel(e), '', '', '', '', '', inr(out)];
+    if (e.kind === 'inst'){ r[2] = inr(e.amt); t[0] += e.amt; }
+    if (e.kind === 'loan'){ r[3] = inr(e.amt); t[1] += e.amt; }
+    if (e.kind === 'repay'){ r[4] = inr(e.amt); r[5] = inr(e.int); t[2] += e.amt; t[3] += e.int; }
+    if (e.kind === 'bonus'){ r[6] = inr(e.amt); t[4] += e.amt; }
+    rows.push(r);
+  });
+  const p = C.per[acc] || {inst:0, loan:0, prin:0, int:0, bonus:0, out:0, credit:0};
+  return {title:'सभासद पासबुक', sub:'खाते ' + acc + ' · ' + (m ? m.name : '') + ' · ' + label,
+    sum:[['एकूण बचत', inr(p.inst)], ['येणे कर्ज', inr(p.out)], ['एकूण व्याज भरले', inr(p.int)], ['बोनस मिळाला', inr(p.bonus)], ['क्रेडिट शिल्लक', inr(p.credit)]],
+    cols:[['तारीख',1.7,'l'],['तपशील',3.6,'l'],['बचत',1.1,'r'],['कर्ज',1.1,'r'],['मुद्दल',1.1,'r'],['व्याज',1,'r'],['बोनस',1,'r'],['येणे कर्ज',1.3,'r']],
+    rows, foot:['एकूण', '', inr(t[0]), inr(t[1]), inr(t[2]), inr(t[3]), inr(t[4]), inr(p.out)]};
+}
+function tableHtml(rep){
+  if (!rep.rows.length) return '<div class="empty card" style="margin-top:12px"><b>नोंदी नाहीत</b>या कालावधीत काहीही नोंद नाही.</div>';
+  const th = rep.cols.map(c => `<th class="${c[2] === 'r' ? 'r' : ''}">${esc(c[0])}</th>`).join('');
+  const tr = rep.rows.map(r => `<tr>${r.map((v,i) => `<td class="${rep.cols[i][2] === 'r' ? 'r num' : ''}">${esc(v)}</td>`).join('')}</tr>`).join('');
+  const ft = rep.foot ? `<tfoot><tr>${rep.foot.map((v,i) => `<td class="${rep.cols[i][2] === 'r' ? 'r num' : ''}">${esc(v)}</td>`).join('')}</tr></tfoot>` : '';
+  return `<div class="tw"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody>${ft}</table></div>`;
+}
+
+/* ================= PDF (drawn on canvas, so Marathi text shapes correctly) ================= */
+async function renderPdf(rep){
+  try { await document.fonts.load('16px Hind'); await document.fonts.load('700 16px Hind'); await document.fonts.load('16px "Yatra One"'); } catch(e){}
+  const W = 1240, H = 1754, M = 64, FONT = 'Hind, "Noto Sans Devanagari", sans-serif', pages = [];
+  let cv, cx, y;
+  const newPage = () => { cv = document.createElement('canvas'); cv.width = W; cv.height = H; cx = cv.getContext('2d'); cx.fillStyle = '#fff'; cx.fillRect(0,0,W,H); pages.push(cv); y = M; };
+  const font = (sz, w = 400, f = FONT) => { cx.font = w + ' ' + sz + 'px ' + f; };
+  const wrap = (t, w) => {
+    const out = []; let line = '';
+    for (const tok of String(t).split(/(\s+)/)){
+      if (cx.measureText(line + tok).width <= w){ line += tok; continue; }
+      if (line.trim()) out.push(line.trim()); line = '';
+      if (cx.measureText(tok).width <= w){ line = tok.trimStart(); continue; }
+      for (const ch of tok){ if (cx.measureText(line + ch).width > w){ out.push(line); line = ''; } line += ch; }
+    }
+    if (line.trim() || !out.length) out.push(line.trim());
+    return out;
+  };
+  const tw = W - 2 * M, totalW = rep.cols.reduce((a,c) => a + c[1], 0), cw = rep.cols.map(c => tw * c[1] / totalW);
+  const drawRow = (cells, o) => {
+    font(o.size, o.bold ? 700 : 400);
+    const lines = cells.map((c,i) => wrap(c, cw[i] - 20)), h = Math.max(...lines.map(l => l.length)) * (o.size + 8) + 16;
+    return {lines, h};
+  };
+  const paintRow = (cells, o, r) => {
+    if (o.bg){ cx.fillStyle = o.bg; cx.fillRect(M, y, tw, r.h); }
+    cx.fillStyle = o.color || '#14232B'; font(o.size, o.bold ? 700 : 400);
+    let x = M;
+    r.lines.forEach((ls, i) => { ls.forEach((ln, j) => { cx.textAlign = rep.cols[i][2] === 'r' ? 'right' : 'left'; cx.fillText(ln, rep.cols[i][2] === 'r' ? x + cw[i] - 10 : x + 10, y + 8 + (j + 1) * (o.size + 8) - 6); }); x += cw[i]; });
+    cx.textAlign = 'left'; cx.strokeStyle = '#D9E1E0'; cx.lineWidth = 1; cx.beginPath(); cx.moveTo(M, y + r.h); cx.lineTo(M + tw, y + r.h); cx.stroke(); y += r.h;
+  };
+  newPage();
+  cx.fillStyle = '#0B4F4A'; font(46, 400, '"Yatra One", ' + FONT); cx.fillText('सर्वज्ञ सोसायटी, दत्तवाडी, मानेगाव', M, y + 44); y += 70;
+  cx.fillStyle = '#14232B'; font(34, 700); cx.fillText(rep.title, M, y + 30); y += 46;
+  cx.fillStyle = '#5C6E75'; font(26); wrap(rep.sub, tw).forEach(l => { cx.fillText(l, M, y + 26); y += 36; }); y += 10;
+  if (rep.sum && rep.sum.length){
+    const bw = (tw - 20) / 2;
+    for (let i = 0; i < rep.sum.length; i += 2){
+      [0,1].forEach(j => { const s = rep.sum[i + j]; if (!s) return; const x = M + j * (bw + 20);
+        cx.fillStyle = '#EEF2F1'; cx.fillRect(x, y, bw, 78); cx.fillStyle = '#5C6E75'; font(22); cx.fillText(s[0], x + 16, y + 30);
+        cx.fillStyle = '#0B4F4A'; font(30, 700); cx.fillText(s[1], x + 16, y + 64); });
+      y += 92;
+    }
+    y += 6;
+  }
+  const head = () => { const hc = rep.cols.map(c => c[0]), r = drawRow(hc, {size:22, bold:true}); if (y + r.h > H - M - 50) newPage(); paintRow(hc, {size:22, bold:true, bg:'#DCEFEC', color:'#0B4F4A'}, r); };
+  head();
+  rep.rows.forEach(row => {
+    const cells = row.map(String), r = drawRow(cells, {size:22});
+    if (y + r.h > H - M - 50){ newPage(); head(); }
+    paintRow(cells, {size:22}, r);
+  });
+  if (rep.foot){ const cells = rep.foot.map(String), r = drawRow(cells, {size:22, bold:true}); if (y + r.h > H - M - 50){ newPage(); head(); } paintRow(cells, {size:22, bold:true, bg:'#EEF2F1'}, r); }
+  pages.forEach((p, i) => { const c = p.getContext('2d'); c.fillStyle = '#5C6E75'; c.font = '400 20px ' + FONT; c.textAlign = 'left';
+    c.fillText('तयार केले: ' + dlabel(today()) + ' · सर्वज्ञ सोसायटी', M, H - 36); c.textAlign = 'right'; c.fillText('पान ' + (i + 1) + ' / ' + pages.length, W - M, H - 36); });
+  return pdfFromCanvases(pages);
+}
+function pdfFromCanvases(pages){
+  const enc = s => new TextEncoder().encode(s), chunks = [], offs = []; let off = 0;
+  const w = b => { chunks.push(b); off += b.length; }, ws = s => w(enc(s));
+  const obj = (id, fn) => { offs[id] = off; ws(id + ' 0 obj\n'); fn(); ws('\nendobj\n'); };
+  const n = pages.length;
+  ws('%PDF-1.4\n');
+  obj(1, () => ws('<< /Type /Catalog /Pages 2 0 R >>'));
+  obj(2, () => ws('<< /Type /Pages /Kids [' + pages.map((_, i) => (5 + 3 * i) + ' 0 R').join(' ') + '] /Count ' + n + ' >>'));
+  pages.forEach((cv, i) => {
+    const bin = atob(cv.toDataURL('image/jpeg', 0.9).split(',')[1]), bytes = new Uint8Array(bin.length);
+    for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+    obj(3 + 3 * i, () => { ws('<< /Type /XObject /Subtype /Image /Width ' + cv.width + ' /Height ' + cv.height + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + bytes.length + ' >>\nstream\n'); w(bytes); ws('\nendstream'); });
+    const content = 'q 595.28 0 0 841.89 0 0 cm /Im0 Do Q';
+    obj(4 + 3 * i, () => ws('<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream'));
+    obj(5 + 3 * i, () => ws('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595.28 841.89] /Resources << /XObject << /Im0 ' + (3 + 3 * i) + ' 0 R >> >> /Contents ' + (4 + 3 * i) + ' 0 R >>'));
+  });
+  const total = 3 + 3 * n, xref = off;
+  ws('xref\n0 ' + total + '\n0000000000 65535 f \n');
+  for (let id = 1; id < total; id++) ws(String(offs[id]).padStart(10, '0') + ' 00000 n \n');
+  ws('trailer\n<< /Size ' + total + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF');
+  return new Blob(chunks, {type:'application/pdf'});
+}
+function waLink(mobile, text){
+  let d = String(mobile || '').replace(/\D/g, ''); if (d.length === 10) d = '91' + d;
+  return 'https://wa.me/' + d + '?text=' + encodeURIComponent(text);
+}
+async function exportPdf(rep, fname){
+  try {
+    if (!S.dl) return toast('या दृश्यात PDF सेव्ह होत नाही');
+    toast('PDF बनवत आहे…');
+    const blob = await renderPdf(rep);
+    await S.dl.save({filename:fname, data:blob});
+    toast('PDF सेव्ह केले. आता WhatsApp मध्ये जोडा.');
+  } catch(e){ if (e && e.code === 'declined') return; toast('PDF बनवता आले नाही'); }
+}
+</script>
+<script>
+/* ================= form helpers ================= */
+const F = {
+  txt:(id,label,v='',x='') => `<label for="${id}">${label}</label><input id="${id}" data-keep type="text" value="${esc(v)}" ${x}>`,
+  num:(id,label,v='',x='') => `<label for="${id}">${label}</label><input id="${id}" data-keep type="number" inputmode="decimal" min="0" step="any" value="${esc(v)}" ${x}>`,
+  date:(id,label,v) => `<label for="${id}">${label}</label><input id="${id}" data-keep type="date" value="${esc(v || today())}">`,
+  mon:(id,label,v) => `<label for="${id}">${label}</label><input id="${id}" data-keep type="month" value="${esc(v || '')}">`,
+  sel:(id,label,opts,v,x='') => `<label for="${id}">${label}</label><select id="${id}" data-keep ${x}>${opts.map(([a,b]) => `<option value="${esc(a)}" ${String(a) === String(v) ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`,
+  area:(id,label,v='') => `<label for="${id}">${label}</label><textarea id="${id}" data-keep rows="3">${esc(v)}</textarea>`
+};
+const memberOpts = () => [...S.members].sort((a,b) => a.acc - b.acc).map(m => [m.acc, m.acc + ' · ' + m.name]);
+const empty = (t, s) => `<div class="empty card" style="margin-top:16px"><b>${t}</b>${s || ''}</div>`;
+const back = (to = 'more') => `<button class="back" data-act="tab" data-t="${to}">← मागे</button>`;
+const pendingCount = () => allRequests().filter(r => r.status === 'pending').length;
+
+/* one ledger row (society view) */
+function evRow(e, o = {}){
+  const names = {inst:'मासिक बचत', loan:'कर्ज दिले', repay:'हप्ता भरला', bonus:'बोनस दिला', exp:'खर्च · ' + (e.cat || ''), invest:'गुंतवणूक · ' + (e.name || ''), invint:'गुंतवणूक व्याज · ' + (e.name || ''), invret:'गुंतवणूक परत · ' + (e.name || '')};
+  const who = e.acc != null && !o.noName ? esc(nameOf(e.acc)) + ' · ' : '';
+  const pos = e.cash > 0;
+  let sub = dlabel(e.date) + (e.mode ? ' · ' + esc(e.mode) : '');
+  if (e.kind === 'repay') sub += ' · मुद्दल ' + inr(e.amt) + ' · व्याज ' + inr(e.int);
+  if (e.adj > 0) sub += ' · ' + inr(e.adj) + ' क्रेडिटमध्ये ठेवले';
+  if (e.adj < 0) sub += ' · क्रेडिटमधून ' + inr(-e.adj) + ' वापरले';
+  if (e.reason) sub += ' · ' + esc(e.reason);
+  if (e.note) sub += ' · ' + esc(e.note);
+  const key = e.col + ':' + e.id;
+  const ed = o.admin && e.col && e.id ? `<button class="btn sm alt" data-act="edit" data-c="${e.col}" data-id="${esc(e.id)}" aria-label="नोंद संपादन">संपादन</button>` : '';
+  const del = o.admin && e.col && e.id ? (S.confirmDel === key
+    ? `<span style="display:flex;gap:6px"><button class="btn sm danger" data-act="del-yes" data-c="${e.col}" data-id="${esc(e.id)}">हटवा</button><button class="btn sm alt" data-act="del-no">रद्द</button></span>`
+    : `<button class="btn sm alt" data-act="del" data-c="${e.col}" data-id="${esc(e.id)}" aria-label="नोंद हटवा">हटवा</button>`) : '';
+  return `<div class="item" style="cursor:default"><div class="mid"><b>${who}${esc(names[e.kind])}</b><small>${sub}</small></div>
+    <div class="amt ${pos ? 'pos' : 'neg'} num">${pos ? '+' : '−'}${inr(Math.abs(e.cash)).replace('−','')}</div><span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${ed}${del}</span></div>`;
+}
+
+/* ================= bar chart ================= */
+function barChart(C){
+  if (!C.keys.length) return '';
+  const last = C.keys[C.keys.length-1]; let [y,m] = last.split('-').map(Number); const win = [];
+  for (let i = 0; i < 12; i++){ win.unshift(y + '-' + String(m).padStart(2,'0')); m--; if (m === 0){ m = 12; y--; } }
+  const data = win.map(k => ({k, a:(C.months[k]||{}).inst||0, b:(C.months[k]||{}).loan||0}));
+  const max = Math.max(1, ...data.flatMap(d => [d.a, d.b]));
+  const step = Math.pow(10, Math.floor(Math.log10(max))); let top = Math.ceil(max/step)*step; if (top/step < 3) top = Math.ceil(max/(step/2))*(step/2);
+  const W = 360, H = 190, L = 38, B = 24, T = 8, pw = W - L - 6, ph = H - B - T, gw = pw/12; let g = '';
+  for (let i = 0; i <= 4; i++){ const v = top*i/4, yy = T + ph - ph*i/4;
+    g += `<line x1="${L}" x2="${W-6}" y1="${yy}" y2="${yy}" stroke="var(--line)" stroke-width="1"/><text x="${L-5}" y="${yy+3.5}" font-size="9.5" text-anchor="end">${v >= 100000 ? (v/100000)+'L' : v >= 1000 ? (v/1000)+'k' : v}</text>`; }
+  data.forEach((d,i) => { const x = L + i*gw, bw = gw*0.32, h1 = ph*d.a/top, h2 = ph*d.b/top;
+    g += `<rect x="${x+gw*0.14}" y="${T+ph-h1}" width="${bw}" height="${h1}" rx="2" fill="var(--accent)"/><rect x="${x+gw*0.14+bw+1.5}" y="${T+ph-h2}" width="${bw}" height="${h2}" rx="2" fill="var(--gold)"/>`;
+    g += `<text x="${x+gw/2}" y="${H-8}" font-size="8.5" text-anchor="middle">${MSHORT[+d.k.slice(5)-1]}</text>`; });
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="महिन्यानुसार बचत आणि कर्ज">${g}</svg>`;
+}
+
+/* ================= home ================= */
+function viewHome(C){
+  if (!S.tx.length && !S.members.length) return empty('अजून नोंदी नाहीत', S.admin ? '“संकलन” टॅबमधून पहिली नोंद करा.' : 'admin नोंदी भरल्यावर येथे दिसतील.');
+  const borrowers = Object.entries(C.per).filter(([a,p]) => p.out > 0).sort((a,b) => b[1].out - a[1].out).slice(0,6), bmax = borrowers.length ? borrowers[0][1].out : 1;
+  const recent = [...C.ev.filter(e => e.col)].reverse().slice(0,8), n = S.members.length || 1, pend = S.admin ? pendingCount() : 0;
+  return `
+  ${pend ? `<button class="item card" style="margin-top:16px;background:var(--bad-soft);border-color:var(--bad)" data-act="tab" data-t="loans"><div class="mid"><b class="due">${pend} नवीन कर्ज अर्ज</b><small>पाहण्यासाठी आणि मंजूर करण्यासाठी दाबा</small></div><span class="pill bad">पाहा</span></button>` : ''}
+  <section class="hero"><div class="lbl">सोसायटीची शिल्लक रक्कम (हातात)</div><div class="big num">${inr(C.cash)}</div>
+    <div class="row">
+      <div class="cell"><span>एकूण बचत जमा</span><b class="num">${inr(C.T.inst)}</b></div>
+      <div class="cell"><span>येणे कर्ज</span><b class="num">${inr(C.out)}</b></div>
+      <div class="cell"><span>एकूण दिलेले कर्ज</span><b class="num">${inr(C.T.loan)}</b></div>
+      <div class="cell"><span>कर्जावरील व्याज</span><b class="num">${inr(C.T.int)}</b></div>
+    </div></section>
+  <div class="card" style="margin-top:12px"><div class="kv kv3 num" style="margin-top:0">
+    <div><span>चालू गुंतवणूक</span><b>${inr(C.investNet)}</b></div><div><span>गुंतवणूक व्याज</span><b>${inr(C.T.invint)}</b></div><div><span>खर्च</span><b>${inr(C.T.exp)}</b></div>
+    <div><span>बोनस वाटप</span><b>${inr(C.T.bonus)}</b></div><div><span>क्रेडिट शिल्लक</span><b>${inr(C.credit)}</b></div><div><span>सभासद</span><b>${S.members.length}</b></div></div></div>
+  <div class="note" style="background:var(--accent-soft)">एकूण व्याज उत्पन्न (कर्ज + गुंतवणूक) <b class="num">${inr(C.T.int + C.T.invint)}</b> · प्रति सभासद <b class="num">${inr((C.T.int + C.T.invint)/n)}</b></div>
+  <h2>महिन्यानुसार बचत आणि कर्ज</h2>
+  <div class="card"><div class="legend"><span><i style="background:var(--accent)"></i>बचत जमा</span><span><i style="background:var(--gold)"></i>कर्ज दिले</span></div>${barChart(C)}</div>
+  <h2>सर्वाधिक येणे कर्ज</h2>
+  <div class="card bars">${borrowers.length ? borrowers.map(([a,p]) => `<div class="b"><span>${esc(nameOf(+a))}</span><em class="num">${inr(p.out)}</em><div class="track"><div class="fill" style="width:${Math.max(3,p.out/bmax*100)}%"></div></div></div>`).join('') : '<div class="empty">कोणाचेही कर्ज येणे नाही</div>'}</div>
+  <h2>ताज्या नोंदी</h2>
+  <div class="card list">${recent.map(e => evRow(e)).join('') || '<div class="empty">नोंदी नाहीत</div>'}</div>`;
+}
+
+/* ================= status: who paid / pending (with carried-forward arrears) ================= */
+function monthOptions(C){
+  const cur = today().slice(0,7), keys = [...C.keys, cur, startKey()].sort(), end = keys[keys.length-1];
+  return monthKeys(keys[0], end).reverse();
+}
+function viewStatus(C){
+  if (!S.members.length) return empty('सभासद नाहीत', 'आधी सभासद जोडा.');
+  const k = S.statusMonth || today().slice(0,7), rows = statusFor(k), f = S.sfilter;
+  const shPaid = rows.filter(r => r.sh === 'paid').length, hDue = rows.filter(r => r.hs !== 'none'), hPaid = hDue.filter(r => r.hs === 'paid').length;
+  const colS = sumBy(rows, r => r.sPaid), colH = sumBy(rows, r => r.hPaid + r.iPaid);
+  const bad = r => r.sh !== 'paid' || r.hs === 'pend' || r.hs === 'part';
+  const shown = rows.filter(r => f === 'all' || (f === 'pending' ? bad(r) : !bad(r)));
+  const SH = {paid:['good','भरले'], part:['gold','अर्धवट'], pend:['bad','बाकी']};
+  const qk = (r, t) => S.admin ? `<button class="qk" data-act="quick" data-acc="${r.m.acc}">संकलन करा</button>` : '';
+  return `<h2 style="margin-top:20px">भरणा स्थिती</h2>
+  ${F.sel('st-month', 'महिना निवडा', monthOptions(C).map(x => [x, mlabel(x)]), k).replace('data-keep','')}
+  <div class="sum2">
+    <div class="card"><b>मासिक बचत</b><span class="big2 num pos">${shPaid}</span> <small>भरले · <span class="due">${rows.length - shPaid} बाकी</span></small><small class="num" style="display:block">जमा ${inr(colS)}</small></div>
+    <div class="card"><b>कर्ज हप्ता + व्याज</b><span class="big2 num pos">${hPaid}</span> <small>भरले · <span class="due">${hDue.length - hPaid} बाकी</span></small><small class="num" style="display:block">जमा ${inr(colH)}</small></div>
+  </div>
+  <div class="seg" style="grid-template-columns:repeat(3,1fr);margin-top:14px" role="group" aria-label="फिल्टर">${[['all','सर्व'],['pending','बाकी'],['paid','भरले']].map(([v,l]) => `<button data-act="sfilter" data-f="${v}" aria-pressed="${f === v}">${l}</button>`).join('')}</div>
+  <div class="card list" style="margin-top:12px">${shown.map(r => { const [c,l] = SH[r.sh];
+    return `<div class="item" style="cursor:default;align-items:flex-start"><div class="acc num" title="खाते क्रमांक">${r.m.acc}</div><div class="mid"><b>${esc(r.m.name)}</b>
+      <div class="stl"><span class="k">बचत</span><span class="pill ${c}">${l}${r.sPaid ? ' ' + inr(r.sPaid) : ''}</span><small class="num">देय ${inr(Math.max(0, r.sTot))}${r.sArr > 0 ? ' (मागील बाकी ' + inr(r.sArr) + ')' : ''}${r.sRem > 0 ? ' · बाकी ' + inr(r.sRem) : ''}${r.adv > 0 ? ' · आगाऊ ' + inr(r.adv) : ''}</small>${r.sh !== 'paid' ? qk(r, 'inst') : ''}</div>
+      <div class="stl"><span class="k">कर्ज हप्ता</span>${r.hs === 'none' ? '<span class="pill">कर्ज नाही</span>' : `<span class="pill ${r.hs === 'paid' ? 'good' : r.hs === 'part' ? 'gold' : 'bad'}">${r.hs === 'paid' ? 'भरले' : r.hs === 'part' ? 'अर्धवट' : 'बाकी'}${r.hPaid + r.iPaid ? ' ' + inr(r.hPaid + r.iPaid) : ''}</span>${r.hs !== 'paid' ? qk(r, 'repay') : ''}`}</div>
+      ${r.hs !== 'none' ? `<div class="stl"><span class="k"></span><small class="num">थकबाकी ${inr(r.out)} · मुद्दल ${inr(r.hTot)}${r.hArr > 0 ? ' (मागील ' + inr(r.hArr) + ')' : ''} भरले ${inr(r.hPaid)} · व्याज ${inr(r.iTot)}${r.iArr > 0 ? ' (मागील ' + inr(r.iArr) + ')' : ''} भरले ${inr(r.iPaid)}</small></div>` : ''}
+      ${r.loanNow ? `<div class="stl"><span class="k">नवे कर्ज</span><span class="pill gold num">${inr(r.loanNow)}</span></div>` : ''}
+      ${r.credit > 0 ? `<div class="stl"><span class="k">क्रेडिट</span><span class="pill gold num">${inr(r.credit)}</span><small>पुढील भरण्यात जुळवा</small></div>` : ''}</div></div>`; }).join('') || '<div class="empty"><b>कोणीही नाही</b>या फिल्टरमध्ये सभासद नाहीत.</div>'}</div>
+  <div class="hint">देय बचत ${inr(shareFor(k))} प्रति सभासद (सेटिंग्जमधून बदलता येते). कमी भरलेली रक्कम पुढील महिन्यात “मागील बाकी” म्हणून दिसते. जास्तीची रक्कम “क्रेडिट” म्हणून जमा राहते.</div>`;
+}
+
+/* ================= loans window ================= */
+function reqCard(r){
+  const st = {pending:['gold','अर्ज प्रलंबित'], approved:['good','मंजूर'], rejected:['bad','नाकारले'], given:['good','कर्ज दिले']}[r.status] || ['','']; const mine = !S.admin;
+  return `<div class="card" style="margin-top:10px"><div class="row-b" style="justify-content:space-between"><b>${mine ? '' : r.acc + ' · ' + esc(nameOf(r.acc)) + ' · '}<span class="num">${inr(r.amt)}</span></b><span class="pill ${st[0]}">${st[1]}</span></div>
+    <div class="hint">${dlabel(r.date)}${r.months ? ' · ' + r.months + ' महिन्यांत परतफेड' : ''}${r.reason ? ' · ' + esc(r.reason) : ''}${r.dnote ? ' · admin: ' + esc(r.dnote) : ''}</div>
+    ${S.admin && r.status === 'pending' ? `<div class="row-b" style="margin-top:10px"><button class="btn sm" data-act="req-approve" data-id="${esc(r.id)}">मंजूर करा</button><button class="btn sm danger" data-act="req-reject" data-id="${esc(r.id)}">नाकारा</button></div>` : ''}
+    ${S.admin && r.status === 'approved' ? `<div class="row-b" style="margin-top:10px"><button class="btn sm" data-act="req-give" data-id="${esc(r.id)}">कर्ज द्या (नोंद करा)</button></div>` : ''}</div>`;
+}
+function loanForm(){
+  const l = S.ln, acc = l.acc || (S.members[0] || {}).acc;
+  if (!S.members.length) return '';
+  return `<h2>नवीन कर्ज द्या</h2><div class="card">${S.fromReq ? '<div class="note" style="margin-top:0">मंजूर अर्जातून कर्ज देत आहात.</div>' : ''}
+    ${F.sel('ln-acc', 'सभासद', memberOpts(), acc)}${F.date('ln-date', 'तारीख', today())}${F.num('ln-amt', 'कर्ज रक्कम (₹)', l.amt || '')}
+    ${F.num('ln-rate', 'व्याजदर (% प्रति महिना): कर्ज देताना ठरवा', l.rate || cfg().rate)}
+    <div class="g2">${F.sel('ln-mode', 'पद्धत', MODES.map(x => [x, x]), 'रोख')}${F.txt('ln-note', 'टीप (ऐच्छिक)', '', 'maxlength="60"')}</div>
+    <button class="btn" data-act="save-loan">पुढे: तपासा</button></div>`;
+}
+function viewLoans(C){
+  const reqs = allRequests(), borrowers = Object.entries(C.per).filter(([a,p]) => p.out > 0).sort((a,b) => b[1].out - a[1].out), SF = statusFor(today().slice(0,7));
+  let h = `<h2 style="margin-top:20px">कर्ज</h2><div class="sum2" style="margin-top:0">
+    <div class="card"><b>येणे कर्ज</b><span class="big2 num due">${inr(C.out)}</span><small style="display:block">${borrowers.length} कर्जदार</small></div>
+    <div class="card"><b>एकूण दिलेले</b><span class="big2 num">${inr(C.T.loan)}</span><small style="display:block">व्याज मिळाले ${inr(C.T.int)}</small></div></div>`;
+  if (S.admin){
+    const pend = reqs.filter(r => r.status === 'pending'), rest = reqs.filter(r => r.status !== 'pending');
+    h += loanForm();
+    h += `<h2>ऑनलाइन कर्ज अर्ज${pend.length ? ' (' + pend.length + ' नवीन)' : ''}</h2>`;
+    h += reqs.length ? pend.map(reqCard).join('') + (rest.length ? `<div class="hint" style="margin-top:14px">मागील अर्ज</div>` + rest.slice(0,8).map(reqCard).join('') : '') : '<div class="empty card"><b>अर्ज नाहीत</b>सभासदांनी अर्ज केल्यावर येथे दिसतील.</div>';
+  } else if (can('apply') && S.me && S.me.acc){
+    const mine = reqs.filter(r => r.acc === S.me.acc), p = C.per[S.me.acc] || {out:0};
+    h += `<h2>कर्जासाठी अर्ज</h2><div class="card">${S.pid ? '' : '<div class="msg">अर्ज करण्यासाठी claude.ai मध्ये लॉगिन असणे आवश्यक आहे.</div>'}
+      <div class="hint" style="margin:0">तुमची सध्याची थकबाकी ${inr(p.out)}. अर्ज admin कडे जाईल; मंजुरीनंतर कर्ज दिले जाईल. व्याजदर कर्ज देताना ठरतो.</div>
+      ${F.num('rq-amt', 'हवी असलेली रक्कम (₹)')}${F.num('rq-months', 'किती महिन्यांत परतफेड (ऐच्छिक)')}${F.txt('rq-reason', 'कारण')}
+      <button class="btn" data-act="req-send">अर्ज पाठवा</button>
+      ${S.reqFail ? `<div class="msg" role="alert">ऑनलाइन अर्ज पाठवता आला नाही. तुमच्या खात्याला लिहिण्याची परवानगी नसावी. खालील बटणाने admin ला WhatsApp वर पाठवा.</div><a class="btn alt" target="_blank" rel="noopener" href="${waLink(cfg().adminMobile, 'कर्ज अर्ज\n' + nameOf(S.me.acc) + ' (खाते ' + S.me.acc + ')\nरक्कम: ' + inr(+($('rq-amt') ? $('rq-amt').value : 0) || 0) + ($('rq-reason') && $('rq-reason').value ? '\nकारण: ' + $('rq-reason').value : ''))}">WhatsApp ने अर्ज पाठवा</a>` : ''}</div>
+      ${mine.length ? '<h2>माझे अर्ज</h2>' + mine.map(reqCard).join('') : ''}`;
+  }
+  if (can('loans')){
+    h += `<h2>कर्ज नोंदवही (येणे कर्ज)</h2><div class="card list">${borrowers.map(([a,p]) => { const st = SF.find(x => x.m.acc === +a), hp = st ? haptaFor(st.outEnd, st.peakEnd) : haptaFor(p.out);
+      return `<button class="item" data-act="open" data-acc="${a}"><div class="acc num">${a}</div><div class="mid"><b>${esc(nameOf(+a))}</b><small>दर ${p.rate}% · मासिक हप्ता ${inr(hp)}${st && st.peakEnd ? ' (टप्पा ' + inr(st.peakEnd) + ' वरून लॉक)' : ''} · घेतले ${inr(p.loan)}</small></div><div class="amt num due">${inr(p.out)}<small>येणे</small></div></button>`; }).join('') || '<div class="empty">कोणाचेही कर्ज येणे नाही</div>'}</div>
+    <h2>सर्व कर्ज नोंदी</h2><div class="card list">${C.ev.filter(e => e.kind === 'loan').slice(-30).reverse().map(e => `<div class="item" style="cursor:default"><div class="acc num">${e.acc}</div><div class="mid"><b>${esc(nameOf(e.acc))}</b><small>${dlabel(e.date)} · दर ${e.rate || '-'}%${e.note ? ' · ' + esc(e.note) : ''}</small></div><div class="amt num neg">${inr(e.amt)}</div></div>`).join('') || '<div class="empty">नोंदी नाहीत</div>'}</div>`;
+  }
+  return h;
+}
+
+/* ================= collection window (admin): monthly share + loan hapta, separate acceptance ================= */
+function enCtx(){
+  const acc = S.en.acc || (S.members[0] || {}).acc, date = S.en.date || today();
+  return {acc, date, k:date.slice(0,7), r:rowFor(acc, date.slice(0,7))};
+}
+function viewEntry(C){
+  if (!S.admin) return empty('फक्त admin साठी', 'नोंदी भरण्याचा अधिकार फक्त admin कडे आहे.');
+  if (!S.members.length) return empty('सभासद नाहीत', '“अधिक → सभासद” मधून आधी सभासद जोडा.');
+  const {acc, date, k, r} = enCtx(), per = C.per[acc] || {credit:0}, hasLoan = r.hs !== 'none', shDone = r.sRem <= 0;
+  const recent = C.ev.filter(e => e.col === 'tx' && e.kind !== 'loan').slice(-10).reverse(), samples = S.tx.filter(x => x.note === 'नमुना').length;
+  const cr = per.credit, dis = hasLoan ? '' : 'disabled';
+  return `<h2 style="margin-top:20px">मासिक संकलन</h2>
+  <div class="card">${F.sel('f-acc', 'सभासद', memberOpts(), acc).replace(' data-keep', '')}${F.date('f-date', 'तारीख (हिशेबाचा महिना: ' + mlabel(k) + ')', date).replace(' data-keep', '')}
+    <div class="g2">${F.sel('f-mode', 'पद्धत', MODES.map(x => [x, x]), 'रोख')}${F.txt('f-note', 'टीप (ऐच्छिक)', '', 'maxlength="60"')}</div></div>
+
+  <div class="card ${shDone ? 'dim' : ''}" style="margin-top:12px"><div class="row-b" style="justify-content:space-between"><b>१. मासिक बचत (शेअर)</b><span class="pill ${shDone ? 'good' : r.sPaid > 0 ? 'gold' : 'bad'}">${shDone ? 'भरले' : r.sPaid > 0 ? 'अर्धवट' : 'बाकी'}</span></div>
+    <label for="s-amt">निश्चित रक्कम (सेटिंग्जनुसार, बदलता येत नाही)</label><input id="s-amt" type="number" value="${shDone ? 0 : r.sRem}" disabled>
+    <div class="hint">या महिन्याची बचत ${inr(r.sDue)}${r.sArr > 0 ? ' + मागील बाकी ' + inr(r.sArr) : ''}${r.sPaid > 0 ? ' · आधी भरले ' + inr(r.sPaid) : ''}. रक्कम बदलण्यासाठी “अधिक → सेटिंग्ज”.</div>
+    <button class="btn" data-act="save-share" ${shDone ? 'disabled' : ''}>बचत स्वीकारा</button></div>
+
+  <div class="card ${hasLoan ? '' : 'dim'}" style="margin-top:12px"><div class="row-b" style="justify-content:space-between"><b>२. कर्ज हप्ता + व्याज</b><span class="pill ${!hasLoan ? '' : r.hs === 'paid' ? 'good' : r.hs === 'part' ? 'gold' : 'bad'}">${!hasLoan ? 'कर्ज नाही' : r.hs === 'paid' ? 'भरले' : r.hs === 'part' ? 'अर्धवट' : 'बाकी'}</span></div>
+    ${hasLoan ? `<div class="hint">थकबाकी ${inr(r.out)} · दर ${r.rate}% · हप्ता टप्पा ${inr(r.slab)} (कर्जाची सर्वाधिक रक्कम ${inr(r.peak)} वरून ठरला, कर्ज संपेपर्यंत कायम)${r.hArr > 0 ? ' · मागील हप्ता बाकी ' + inr(r.hArr) : ''}</div>` : '<div class="hint">या सभासदाचे या महिन्यात कर्ज नाही. हा भाग बंद आहे.</div>'}
+    ${F.num('h-amt', 'मुद्दल हप्ता (₹): बदलता येतो', hasLoan ? r.hRem : '', dis)}
+    <label for="h-due">व्याज देय (थकबाकी × दर, आपोआप)</label><input id="h-due" type="number" value="${hasLoan ? r.iRem : 0}" disabled>
+    ${F.num('h-intr', 'व्याज प्रत्यक्ष मिळाले (₹)', hasLoan ? r.iRem : '', dis)}
+    <div class="hint" id="h-diff"></div>
+    <div class="row-b" style="margin-top:8px;justify-content:space-between"><span class="hint" style="margin:0">क्रेडिट शिल्लक: <b class="${cr < 0 ? 'due' : 'pos'} num">${inr(cr)}</b>${cr < 0 ? ' (व्याज बाकी)' : ''}</span><button class="btn sm alt" data-act="use-credit" ${dis}>क्रेडिट जुळवा</button></div>
+    <button class="btn" data-act="save-hapta" ${dis}>हप्ता स्वीकारा</button></div>
+
+  <div class="card total" id="en-total-card"><span>एकूण (बचत + हप्ता + व्याज)</span><b class="num" id="en-total"></b><small id="en-parts" class="num"></small></div>
+  <div class="hint">जास्त किंवा कमी व्याज फरक त्या सभासदाच्या क्रेडिटमध्ये जातो आणि पुढील महिन्यात जुळवता येतो. फक्त व्याजाचा फरकच क्रेडिटमध्ये जातो. नवीन कर्ज “कर्ज” टॅबमधून द्या.</div>
+  <h2>शेवटच्या नोंदी (संपादन किंवा हटवा)</h2>
+  <div class="card list">${recent.map(e => evRow(e, {admin:true})).join('') || '<div class="empty">नोंदी नाहीत</div>'}</div>
+  ${samples ? `<div class="note"><b>${samples} नमुना नोंदी</b> अजून आहेत. खऱ्या वापराआधी त्या काढून टाका.<br>
+    ${S.confirmDel === 'samples' ? `<button class="btn sm danger" style="margin-top:10px" data-act="del-samples-yes">होय, नमुना नोंदी हटवा</button> <button class="btn sm alt" data-act="del-no">रद्द</button>` : `<button class="btn sm alt" style="margin-top:10px" data-act="del-samples">नमुना नोंदी काढा</button>`}</div>` : ''}`;
+}
+/* live total + interest difference text (no re-render, so typing is never interrupted) */
+function updateHint(){
+  const tot = $('en-total'); if (!tot || !S.C) return;
+  const {acc, k, r} = enCtx(); if (!r) return;
+  const hasLoan = r.hs !== 'none', sh = r.sRem > 0 ? r.sRem : 0, ha = hasLoan ? (+val('h-amt') || 0) : 0, ir = hasLoan ? (+val('h-intr') || 0) : 0;
+  tot.textContent = inr(sh + ha + ir);
+  $('en-parts').textContent = 'बचत ' + inr(sh) + ' + मुद्दल ' + inr(ha) + ' + व्याज ' + inr(ir);
+  const d = $('h-diff'); if (d && hasLoan){ const diff = ir - r.iRem; d.textContent = diff === 0 ? 'व्याज बरोबर आहे.' : diff > 0 ? 'जास्तीचे ' + inr(diff) + ' क्रेडिटमध्ये जमा होतील.' : 'कमी ' + inr(-diff) + ': क्रेडिटमधून वजा होईल (पुढील महिन्यात जुळवा).'; d.className = 'hint'; }
+}
+
+/* ================= members + tally ================= */
+function viewMembers(C){
+  const q = S.q.trim().toLowerCase();
+  const rows = S.members.filter(m => !q || m.name.toLowerCase().includes(q) || String(m.acc) === q).sort((a,b) => a.acc - b.acc);
+  const allow = acc => S.admin || can('passbooks') || (S.me && S.me.acc === acc);
+  return `${back()}<input class="search" id="q" type="search" placeholder="नाव किंवा खाते क्रमांक शोधा" value="${esc(S.q)}" aria-label="सभासद शोधा">
+  <div class="card list" style="margin-top:12px">${rows.map(m => { const p = C.per[m.acc] || {inst:0, out:0, credit:0};
+    return `<button class="item" ${allow(m.acc) ? `data-act="open" data-acc="${m.acc}"` : 'disabled style="cursor:default"'}><div class="acc num">${m.acc}</div><div class="mid"><b>${esc(m.name)}</b><small>बचत ${inr(p.inst)}${p.credit > 0 ? ' · क्रेडिट ' + inr(p.credit) : ''}</small></div>
+    <div class="amt num">${p.out > 0 ? `<span class="due">${inr(p.out)}</span><small>येणे कर्ज</small>` : '<span class="pill good">कर्ज नाही</span>'}</div></button>`; }).join('') || '<div class="empty"><b>सभासद सापडला नाही</b>दुसरे नाव शोधा.</div>'}</div>
+  ${S.admin ? `<h2>नवीन सभासद जोडा</h2><div class="card">${F.txt('m-name', 'पूर्ण नाव')}<div class="g2">${F.txt('m-mob', 'मोबाईल (ऐच्छिक)', '', 'inputmode="numeric"')}${F.mon('m-join', 'सामील महिना (ऐच्छिक)')}</div>
+    <button class="btn alt" data-act="addmem">सभासद जोडा</button></div>` : ''}`;
+}
+function viewTally(C){
+  if (!C.keys.length) return back() + empty('ताळेबंद रिकामा आहे', 'नोंदी भरल्यावर प्रत्येक महिन्याचा हिशेब येथे दिसेल.');
+  return back() + [...C.keys].reverse().map(k => { const m = C.months[k], open = S.openMonth === k;
+    const list = open ? `<div class="list" style="margin-top:10px">${C.ev.filter(e => e.date.startsWith(k) && e.kind !== 'invest').reverse().map(e => evRow(e)).join('')}</div>` : '';
+    return `<div class="card mon"><button class="item" style="padding:0;border:0" data-act="month" data-k="${k}" aria-expanded="${open}"><div class="mid"><div class="mon-h"><b>${mlabel(k)}</b><span class="pill">${m.n} सभासदांची बचत</span></div>
+      <div class="kv num"><div><span>बचत जमा</span><b>${inr(m.inst)}</b></div><div><span>कर्ज दिले</span><b>${inr(m.loan)}</b></div>
+      <div><span>मुद्दल परत</span><b>${inr(m.prin)}</b></div><div><span>कर्ज व्याज</span><b>${inr(m.int)}</b></div>
+      <div><span>गुंतवणूक व्याज</span><b>${inr(m.invint)}</b></div><div><span>खर्च / बोनस</span><b>${inr(m.exp)} / ${inr(m.bonus)}</b></div>
+      <div><span>महिना अखेर शिल्लक</span><b>${inr(m.cash)}</b></div><div><span>येणे कर्ज</span><b class="${m.out > 0 ? 'due' : ''}">${inr(m.out)}</b></div></div></div></button>${list}</div>`; }).join('');
+}
+</script>
+<script>
+const Fs = (id, label, opts, v) => F.sel(id, label, opts, v).replace(' data-keep', '');
+
+/* ================= more menu ================= */
+const SUBTABS = ['members','tally','invest','expenses','bonus','reports','settings','perms','logins'];
+function viewMore(){
+  const items = [
+    ['mine','user','माझे खाते (पासबुक)','माझी बचत, कर्ज, बोनस आणि क्रेडिट', !!(S.me && S.me.acc)],
+    ['members','people','सभासद','सर्व सभासदांची यादी', can('members')],
+    ['interest','loan','कर्जावरील व्याज','महिन्याचे व्याज, मिळालेले आणि क्रेडिट', S.admin || can('loans')],
+    ['tally','month','मासिक ताळेबंद','महिनावार हिशेब', can('tally')],
+    ['invest','invest','गुंतवणूक','बँक, शेअर बाजार इत्यादी', can('invest')],
+    ['expenses','expense','खर्च','सोसायटीचे खर्च', can('expenses')],
+    ['bonus','gift','बोनस','वार्षिक बोनस वाटप', can('bonus')],
+    ['reports','report','अहवाल आणि विवरण','आर्थिक वर्ष, तारीख, महिना, सभासद, बचत, कर्ज, व्याज', can('reports')],
+    ['settings','gear','सेटिंग्ज','बचत रक्कम, व्याजदर, हप्ता स्लॅब', S.admin],
+    ['perms','shield','सभासद अधिकार','लॉगिन चालू/बंद आणि अधिकारांची यादी', S.admin],
+    ['logins','key','लॉगिन आयडी आणि पासवर्ड','सभासदांसाठी पासवर्ड तयार करा', S.admin],
+    ['pw','key','माझा पासवर्ड बदला','स्वतःचा पासवर्ड बदला', !!S.me]
+  ].filter(x => x[4]);
+  return `<h2 style="margin-top:20px">अधिक</h2><div class="card list menu">${items.map(([t,i,a,b]) => `<button class="item" data-act="tab" data-t="${t}"><span class="ic">${ICON[i]}</span><div class="mid"><b>${a}</b><small>${b}</small></div></button>`).join('')}</div>`;
+}
+
+/* ================= investments ================= */
+function planStats(C, p){
+  const e = C.ev.filter(x => x.planId === p.id), s = k => sumBy(e.filter(x => x.kind === k), x => x.amt);
+  return {inv:s('invest'), int:s('invint'), ret:s('invret'), cur:s('invest') - s('invret')};
+}
+function viewInvest(C){
+  const plans = S.invest.slice().sort((a,b) => a.start < b.start ? 1 : -1);
+  const opts = plans.map(p => [p.id, p.name]);
+  return `${back()}<h2 style="margin-top:8px">गुंतवणूक</h2>
+  <div class="sum2" style="margin-top:0"><div class="card"><b>एकूण गुंतवले</b><span class="big2 num">${inr(C.T.inv)}</span></div><div class="card"><b>चालू गुंतवणूक</b><span class="big2 num">${inr(C.investNet)}</span><small style="display:block">परत मिळाले ${inr(C.T.invret)}</small></div>
+  <div class="card"><b>मिळालेले व्याज</b><span class="big2 num pos">${inr(C.T.invint)}</span></div><div class="card"><b>योजना</b><span class="big2 num">${plans.length}</span></div></div>
+  ${plans.map(p => { const s = planStats(C, p), open = p.mode === 'monthly' && !p.end;
+    return `<div class="card" style="margin-top:12px"><div class="row-b" style="justify-content:space-between"><b>${esc(p.name)}</b><span class="pill ${p.mode === 'monthly' ? 'gold' : ''}">${p.mode === 'monthly' ? 'दर महिना ' + inr(p.amount) : 'एकदा ' + inr(p.amount)}</span></div>
+      <div class="hint">${esc(p.cat || '')} · सुरू ${dlabel(p.start)}${p.end ? ' · बंद ' + mlabel(p.end) : ''}${p.note ? ' · ' + esc(p.note) : ''}</div>
+      <div class="kv kv3 num"><div><span>गुंतवले</span><b>${inr(s.inv)}</b></div><div><span>व्याज</span><b class="pos">${inr(s.int)}</b></div><div><span>चालू</span><b>${inr(s.cur)}</b></div></div>
+      ${S.admin ? `<div class="row-b" style="margin-top:10px">${open ? `<button class="btn sm alt" data-act="iv-stop" data-id="${esc(p.id)}">मासिक गुंतवणूक थांबवा</button>` : ''}${S.confirmDel === 'invest:' + p.id ? `<button class="btn sm danger" data-act="del-yes" data-c="invest" data-id="${esc(p.id)}">होय, योजना हटवा</button><button class="btn sm alt" data-act="del-no">रद्द</button>` : `<button class="btn sm alt" data-act="del" data-c="invest" data-id="${esc(p.id)}">हटवा</button>`}<button class="btn sm alt" data-act="edit" data-c="invest" data-id="${esc(p.id)}">संपादन</button></div>` : ''}</div>`; }).join('') || '<div class="empty card" style="margin-top:12px"><b>गुंतवणूक नाही</b>admin योजना जोडल्यावर येथे दिसेल.</div>'}
+  <h2>व्याज / मुद्दल परत नोंदी</h2><div class="card list">${C.ev.filter(e => e.kind === 'invint' || e.kind === 'invret').slice(-15).reverse().map(e => evRow(e, {admin:S.admin})).join('') || '<div class="empty">नोंदी नाहीत</div>'}</div>
+  ${S.admin ? `<h2>नवीन गुंतवणूक योजना</h2><div class="card">${F.txt('iv-name', 'नाव (उदा. SBI एफडी, शेअर बाजार)')}${F.sel('iv-cat', 'प्रकार', INV_CATS.map(x => [x, x]), INV_CATS[0])}
+    ${F.sel('iv-mode', 'गुंतवणूक कशी', [['onetime', 'एकदाच (एक रकमी)'], ['monthly', 'दर महिन्याला']], 'onetime')}
+    ${F.num('iv-amt', 'मुद्दल रक्कम (₹): दर महिन्याची असल्यास प्रत्येक महिन्याची')}${F.date('iv-start', 'सुरुवात तारीख', today())}${F.txt('iv-note', 'टीप (ऐच्छिक)')}
+    <button class="btn" data-act="iv-add">पुढे: तपासा</button></div>
+  <h2>व्याज मिळाले / मुद्दल परत आले</h2><div class="card">${opts.length ? `${F.sel('ix-plan', 'योजना', opts, opts[0][0])}${F.sel('ix-kind', 'काय मिळाले', [['int', 'व्याज'], ['ret', 'मुद्दल परत']], 'int')}${F.date('ix-date', 'तारीख', today())}${F.num('ix-amt', 'रक्कम (₹)')}${F.txt('ix-note', 'टीप (ऐच्छिक)')}
+    <button class="btn" data-act="ix-add">पुढे: तपासा</button>` : '<div class="hint">आधी गुंतवणूक योजना जोडा.</div>'}</div>` : ''}`;
+}
+
+/* ================= expenses ================= */
+function viewExpenses(C){
+  const fy = S.expFy === 'cur' ? curFy() : S.expFy, all = S.expFy === 'all';
+  const X = C.ev.filter(e => e.kind === 'exp' && (all || (e.date >= fyRange(+fy)[0] && e.date <= fyRange(+fy)[1]))), tot = sumBy(X, e => e.amt);
+  const by = {}; X.forEach(e => by[e.cat || 'इतर'] = (by[e.cat || 'इतर'] || 0) + e.amt);
+  return `${back()}<h2 style="margin-top:8px">खर्च</h2>
+  ${Fs('x-fy', 'कालावधी', [['all', 'सर्व'], ...fyOptions().map(y => [y, 'आर्थिक वर्ष ' + fyLabel(y)])], all ? 'all' : fy)}
+  <div class="sum2"><div class="card"><b>एकूण खर्च</b><span class="big2 num due">${inr(tot)}</span></div><div class="card"><b>नोंदी</b><span class="big2 num">${X.length}</span></div></div>
+  ${Object.keys(by).length ? `<div class="card bars" style="margin-top:12px">${Object.entries(by).sort((a,b) => b[1] - a[1]).map(([k,v]) => `<div class="b"><span>${esc(k)}</span><em class="num">${inr(v)}</em><div class="track"><div class="fill" style="width:${Math.max(3, v / tot * 100)}%"></div></div></div>`).join('')}</div>` : ''}
+  <h2>खर्चाच्या नोंदी</h2><div class="card list">${X.slice().reverse().map(e => evRow(e, {admin:S.admin})).join('') || '<div class="empty">नोंदी नाहीत</div>'}</div>
+  ${S.admin ? `<h2>नवीन खर्च</h2><div class="card">${F.date('x-date', 'तारीख', today())}${F.sel('x-cat', 'प्रकार', EXP_CATS.map(x => [x, x]), EXP_CATS[0])}${F.num('x-amt', 'रक्कम (₹)')}
+    <div class="g2">${F.sel('x-mode', 'पद्धत', MODES.map(x => [x, x]), 'रोख')}${F.txt('x-note', 'तपशील', '', 'maxlength="80"')}</div><button class="btn" data-act="x-add">पुढे: तपासा</button></div>` : ''}`;
+}
+
+/* ================= bonus ================= */
+function viewBonus(C){
+  const B = C.ev.filter(e => e.kind === 'bonus'), groups = {};
+  B.forEach(e => { const g = groups[e.grp || (e.date + e.reason)] || (groups[e.grp || (e.date + e.reason)] = {date:e.date, reason:e.reason, n:0, tot:0, ids:[]}); g.n++; g.tot += e.amt; g.ids.push(e.id); });
+  const gl = Object.entries(groups).sort((a,b) => a[1].date < b[1].date ? 1 : -1);
+  return `${back()}<h2 style="margin-top:8px">बोनस</h2>
+  <div class="sum2" style="margin-top:0"><div class="card"><b>एकूण बोनस वाटप</b><span class="big2 num">${inr(C.T.bonus)}</span></div><div class="card"><b>वेळा</b><span class="big2 num">${gl.length}</span></div></div>
+  <h2>मागील बोनस</h2><div class="card list">${gl.map(([id,g]) => `<div class="item" style="cursor:default"><div class="mid"><b>${esc(g.reason || 'बोनस')}</b><small>${dlabel(g.date)} · आर्थिक वर्ष ${fyLabel(fyStart(g.date))} · ${g.n} सभासद</small></div><div class="amt num">${inr(g.tot)}</div>
+    ${S.admin ? (S.confirmDel === 'bonus:' + id ? `<span style="display:flex;gap:6px"><button class="btn sm danger" data-act="bn-del-yes" data-g="${esc(id)}">हटवा</button><button class="btn sm alt" data-act="del-no">रद्द</button></span>` : `<button class="btn sm alt" data-act="bn-del" data-g="${esc(id)}">हटवा</button>`) : ''}</div>`).join('') || '<div class="empty">अजून बोनस दिलेला नाही</div>'}</div>
+  <div class="hint">बोनस प्रत्येक सभासदाच्या पासबुकमध्ये “बोनस” म्हणून दिसतो.</div>
+  ${S.admin ? `<h2>नवीन बोनस</h2><div class="card">${F.date('bn-date', 'तारीख', today())}${F.txt('bn-reason', 'कारण (उदा. दिवाळी बोनस, वार्षिक नफा वाटप)')}
+    <div class="g2">${F.num('bn-all', 'सर्वांसाठी रक्कम (₹)')}<div><label>&nbsp;</label><button class="btn alt" style="margin-top:0;padding:11px" data-act="bn-fill">सर्वांना लागू करा</button></div></div>
+    <div class="hint">खाली प्रत्येक सभासदाची रक्कम बदलता येते. रिकामी किंवा 0 असल्यास त्या सभासदाला बोनस मिळणार नाही.</div>
+    <div class="list" style="margin-top:6px">${[...S.members].sort((a,b) => a.acc - b.acc).map(m => `<div class="item" style="padding:6px 2px"><div class="acc num">${m.acc}</div><div class="mid"><b style="font-weight:500">${esc(m.name)}</b></div><input style="width:110px" class="bn-i" data-keep id="bn-${m.acc}" data-acc="${m.acc}" type="number" inputmode="decimal" min="0" step="any" aria-label="बोनस ${esc(m.name)}"></div>`).join('')}</div>
+    <button class="btn" data-act="bn-add">पुढे: तपासा</button></div>` : ''}`;
+}
+
+/* ================= reports ================= */
+function viewReports(C){
+  const r = S.rp, fys = fyOptions(); if (!r.fy) r.fy = fys[0];
+  const kinds = [['summary','सारांश (सोसायटी ताळेबंद)'], ['monthwise','महिनावार'], ['datewise','तारखेनुसार नोंदवही'], ['memberwise','सभासदनिहाय'], ['share','बचत (शेअर) अहवाल'], ['loan','कर्ज अहवाल'], ['interest','व्याज अहवाल'], ['expense','खर्च अहवाल'], ['invest','गुंतवणूक अहवाल']];
+  const rep = buildReport(C), txt = rep.title + '\n' + rep.sub + '\n' + (rep.sum || []).map(s => s[0] + ': ' + s[1]).join('\n') + (rep.foot ? '\n' + rep.foot.filter(Boolean).join(' · ') : '');
+  const fname = 'सोसायटी-' + r.kind + '-' + today() + '.pdf';
+  return `${back()}<h2 style="margin-top:8px">अहवाल आणि विवरण</h2><div class="card">
+    ${Fs('rp-kind', 'अहवाल प्रकार', kinds, r.kind)}${Fs('rp-period', 'कालावधी', [['fy', 'आर्थिक वर्ष (FY)'], ['month', 'महिना'], ['range', 'तारखेनुसार (पासून ते पर्यंत)'], ['all', 'सर्व कालावधी']], r.period)}
+    ${r.period === 'fy' ? Fs('rp-fy', 'आर्थिक वर्ष', fys.map(y => [y, fyLabel(y)]), r.fy) : ''}
+    ${r.period === 'month' ? Fs('rp-month', 'महिना', monthOptions(C).map(x => [x, mlabel(x)]), r.month) : ''}
+    ${r.period === 'range' ? `<div class="g2"><div><label for="rp-from">पासून</label><input id="rp-from" type="date" value="${esc(r.from)}"></div><div><label for="rp-to">पर्यंत</label><input id="rp-to" type="date" value="${esc(r.to)}"></div></div>` : ''}
+    ${['datewise','loan','interest','share'].includes(r.kind) ? Fs('rp-acc', 'सभासद (ऐच्छिक)', [['', 'सर्व सभासद'], ...memberOpts()], r.acc) : ''}</div>
+  <h2>${esc(rep.title)}</h2><div class="hint" style="margin:-4px 0 8px">${esc(rep.sub)}</div>
+  ${rep.sum && rep.sum.length ? `<div class="kv" style="margin:0 0 6px">${rep.sum.map(s => `<div class="card"><span>${esc(s[0])}</span><b class="num">${esc(s[1])}</b></div>`).join('')}</div>` : ''}
+  ${tableHtml(rep)}
+  <div class="row-b" style="margin-top:14px"><button class="btn" style="flex:1;margin:0" data-act="rp-pdf">PDF सेव्ह करा</button><a class="btn alt" style="flex:1;margin:0" href="${waLink('', txt)}" target="_blank" rel="noopener">WhatsApp सारांश</a></div>
+  <div class="hint">PDF सेव्ह केल्यानंतर तीच फाईल WhatsApp मध्ये जोडून पाठवा.</div>`;
+}
+
+/* ================= settings ================= */
+function viewSettings(C){
+  const c = cfg(), shares = [...c.shares].sort((a,b) => a.from < b.from ? -1 : 1), cur = shareFor(today().slice(0,7));
+  const sl = [...c.slabs].sort((a,b) => a[0] - b[0]);
+  while (sl.length < 3) sl.push(['', '']);
+  return `${back()}<h2 style="margin-top:8px">सेटिंग्ज</h2>
+  <div class="card"><b>मासिक बचत रक्कम (शेअर)</b><div class="big2 num" style="font-size:24px;font-weight:700;margin-top:4px">${inr(cur)} <small style="font-size:13px;font-weight:400;color:var(--muted)">प्रति सभासद, या महिन्याची</small></div>
+    <div class="list" style="margin-top:8px">${shares.map((s,i) => `<div class="item" style="cursor:default;padding:8px 2px"><div class="mid"><b style="font-weight:500">${s.from === '2000-01' ? 'सुरुवातीपासून' : mlabel(s.from) + ' पासून'}</b></div><div class="amt num">${inr(s.amt)}</div>${S.admin && shares.length > 1 ? `<button class="btn sm alt" data-act="set-del-share" data-from="${esc(s.from)}">हटवा</button>` : ''}</div>`).join('')}</div>
+    <div class="g2">${F.mon('st-from', 'कोणत्या महिन्यापासून', today().slice(0,7))}${F.num('st-amt', 'नवीन रक्कम (₹)')}</div>
+    <button class="btn alt" data-act="set-add-share">बचत रक्कम बदला</button></div>
+  <div class="card" style="margin-top:12px"><b>व्याजदर</b><div class="hint" style="margin-top:2px">प्रत्येक कर्जाचा व्याजदर कर्ज देताना “नोंद” मध्ये ठरवला जातो. खालील दर फक्त सुचवलेला (डिफॉल्ट) दर आहे.</div>
+    ${F.num('st-rate', 'डिफॉल्ट व्याजदर (% प्रति महिना)', c.rate)}<button class="btn alt" data-act="set-save-rate">व्याजदर जतन करा</button></div>
+  <div class="card" style="margin-top:12px"><b>मासिक हप्ता स्लॅब (मुद्दल)</b><div class="hint" style="margin-top:2px">थकबाकी कर्जाच्या रकमेनुसार मासिक मुद्दल हप्ता. व्याज वेगळे.</div>
+    ${sl.slice(0,3).map((s,i) => `<div class="g2">${F.num('sl-f' + i, 'कर्ज किमान (₹) ' + (i + 1), s[0])}${F.num('sl-a' + i, 'हप्ता (₹)', s[1])}</div>`).join('')}
+    <button class="btn alt" data-act="set-save-slabs">स्लॅब जतन करा</button></div>
+  <div class="card" style="margin-top:12px"><b>सोसायटी सुरुवात महिना</b><div class="hint" style="margin-top:2px">या महिन्यापासून बचतीचा हिशेब आणि “मागील बाकी” मोजली जाते. रिकामे असल्यास पहिल्या नोंदीचा महिना.</div>
+    ${F.mon('st-start', 'सुरुवात महिना', c.startMonth || '')}<button class="btn alt" data-act="set-save-start">जतन करा</button></div>
+  <div class="card" style="margin-top:12px"><b>admin चा मोबाईल</b><div class="hint" style="margin-top:2px">ऑनलाइन अर्ज पाठवता न आल्यास सभासदांना WhatsApp ने अर्ज पाठवण्यासाठी हा नंबर वापरला जातो.</div>
+    ${F.txt('st-amob', 'मोबाईल नंबर', c.adminMobile || '', 'inputmode="numeric"')}<button class="btn alt" data-act="set-save-amob">जतन करा</button></div>`;
+}
+
+/* ================= permissions checklist & logins ================= */
+function viewPerms(){
+  const mem = [...S.members].sort((a,b) => a.acc - b.acc);
+  return `${back()}<h2 style="margin-top:8px">सभासद अधिकार</h2><div class="hint" style="margin:-4px 0 8px">प्रत्येक सभासदासाठी लॉगिन चालू/बंद करा आणि कोणती कामे करू देणार ते निवडा. बदल लगेच लागू होतात.</div>
+  ${mem.map(m => { const uid = uidFor(m.acc), has = !!S.auth[uid], pd = S.perms[uid], en = !pd || pd.enabled !== false, p = permsOf(uid);
+    return `<div class="card" style="margin-top:12px"><div class="row-b" style="justify-content:space-between"><b>${m.acc} · ${esc(m.name)}</b><span class="pill ${has ? 'good' : ''}">${has ? 'आयडी ' + uid : 'लॉगिन नाही'}</span></div>
+      <label class="chk" style="font-weight:600"><input type="checkbox" data-perm="__en" data-uid="${uid}" ${en ? 'checked' : ''}> लॉगिन चालू आहे</label>
+      ${PERMS.map(([k,l]) => `<label class="chk"><input type="checkbox" data-perm="${k}" data-uid="${uid}" ${p[k] !== false ? 'checked' : ''}> ${l}</label>`).join('')}</div>`; }).join('') || empty('सभासद नाहीत')}`;
+}
+function viewLogins(){
+  const mem = [...S.members].sort((a,b) => a.acc - b.acc), missing = mem.filter(m => !S.auth[uidFor(m.acc)]).length;
+  const creds = S.creds ? `<div class="note" style="margin-top:0"><b>हे पासवर्ड फक्त आत्ता दिसतात.</b> कॉपी करून सभासदांना पाठवा. नंतर पुन्हा पाहता येत नाहीत.
+      <textarea class="cred" id="cred-box" readonly aria-label="नवीन आयडी आणि पासवर्ड">${esc(S.creds.map(c => c.name + '\nआयडी: ' + c.uid + '   पासवर्ड: ' + c.pw).join('\n\n'))}</textarea>
+      <div class="row-b" style="margin-top:10px"><button class="btn sm" data-act="copy-creds">कॉपी करा</button><button class="btn sm alt" data-act="hide-creds">लपवा</button></div></div>` : '';
+  return `${back()}<h2 style="margin-top:8px">लॉगिन आयडी आणि पासवर्ड</h2><div class="card">${creds}
+    <div class="hint" style="margin:0 0 6px">आयडी खाते क्रमांकावरून ठरतो (उदा. m001). पासवर्ड विसरल्यास “नवीन पासवर्ड” दाबा. अधिकार “सभासद अधिकार” मध्ये ठरवा.</div>
+    <button class="btn" ${missing ? '' : 'disabled'} data-act="gen-missing">लॉगिन नसलेल्या सर्वांसाठी तयार करा (${missing})</button>
+    <div class="list" style="margin-top:8px">${mem.map(m => { const has = !!S.auth[uidFor(m.acc)];
+      return `<div class="item" style="cursor:default"><div class="mid"><b>${esc(m.name)}</b><small>आयडी ${uidFor(m.acc)} · ${has ? 'लॉगिन आहे' : 'लॉगिन नाही'}</small></div>
+      <button class="btn sm alt" data-act="reset-pw" data-acc="${m.acc}">${has ? 'नवीन पासवर्ड' : 'तयार करा'}</button></div>`; }).join('')}</div></div>
+  <h2>admin पासवर्ड बदला</h2><div class="card">${F.txt('a-pw', 'नवीन पासवर्ड (किमान ६ अक्षरे)', '', 'type="text" autocomplete="off"').replace('type="text" value="" type="text"', 'type="password"')}
+    <button class="btn alt" data-act="set-admin-pw">पासवर्ड बदला</button></div>`;
+}
+
+/* ================= passbook sheet ================= */
+function sheetHtml(C){
+  const m = S.members.find(x => x.acc === S.sel); if (!m) return '';
+  const p = C.per[m.acc] || {inst:0, loan:0, prin:0, int:0, out:0, bonus:0, credit:0, rate:cfg().rate}, rep = pbReport(m.acc, S.pbFy);
+  const share = S.admin || can('pdf'), fyo = [['all', 'सर्व कालावधी'], ...fyOptions().map(y => [y, 'आर्थिक वर्ष ' + fyLabel(y)])];
+  const wa = waLink(m.mobile, 'सर्वज्ञ सोसायटी पासबुक\n' + m.name + ' (खाते ' + m.acc + ')\n' + rep.sub + '\nएकूण बचत ' + inr(p.inst) + '\nयेणे कर्ज ' + inr(p.out) + '\nक्रेडिट शिल्लक ' + inr(p.credit) + '\nPDF पासबुक सोबत जोडत आहे.');
+  return `<div class="sheet" role="dialog" aria-label="पासबुक"><div class="sheet-top"><button data-act="close">← मागे</button><div style="min-width:0"><b style="display:block;overflow-wrap:anywhere">${esc(m.name)}</b><small style="opacity:.8">खाते क्रमांक ${m.acc}${m.mobile ? ' · ' + esc(m.mobile) : ''}</small></div></div>
+  <div class="sheet-in"><section class="hero" style="margin-top:0"><div class="lbl">येणे कर्ज</div><div class="big num">${inr(p.out)}</div>
+    <div class="row"><div class="cell"><span>एकूण बचत</span><b class="num">${inr(p.inst)}</b></div><div class="cell"><span>घेतलेले कर्ज</span><b class="num">${inr(p.loan)}</b></div>
+    <div class="cell"><span>मुद्दल भरले</span><b class="num">${inr(p.prin)}</b></div><div class="cell"><span>व्याज भरले</span><b class="num">${inr(p.int)}</b></div>
+    <div class="cell"><span>बोनस मिळाला</span><b class="num">${inr(p.bonus)}</b></div><div class="cell"><span>क्रेडिट शिल्लक</span><b class="num">${inr(p.credit)}</b></div></div></section>
+    ${p.out > 0 ? `<div class="note">सूचित मासिक व्याज (${p.rate}%): <b class="num">${inr(p.out * p.rate / 100)}</b> · मासिक हप्ता (मुद्दल) <b class="num">${inr(haptaFor(p.out, (S.C.per[m.acc] && loanInfo(m.acc).peak) || 0))}</b></div>` : ''}
+    <h2>पासबुक</h2>${Fs('pb-fy', 'कालावधी', fyo, S.pbFy)}${tableHtml(rep)}
+    ${share ? `<div class="row-b" style="margin-top:14px"><button class="btn" style="flex:1;margin:0" data-act="pb-pdf" data-acc="${m.acc}">PDF सेव्ह करा</button><a class="btn alt" style="flex:1;margin:0" href="${wa}" target="_blank" rel="noopener">WhatsApp उघडा</a></div>
+    <div class="hint">आधी “PDF सेव्ह करा”, मग WhatsApp मध्ये ती फाईल जोडून पाठवा.</div>` : ''}</div></div>`;
+}
+
+/* ================= confirm + popup overlays ================= */
+function confirmHtml(){
+  const d = S.confirm; if (!d) return '';
+  return `<div class="sheet" style="z-index:50" role="dialog" aria-label="${esc(d.title)}"><div class="sheet-top"><b>${esc(d.title)}</b></div><div class="sheet-in">
+    <div class="card">${d.rows.map(([k,v]) => `<div class="kv" style="grid-template-columns:120px 1fr;margin:0 0 8px"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+    ${d.warn ? `<div class="msg" role="alert">${esc(d.warn)}</div>` : ''}${d.extra ? `<div class="note">${esc(d.extra)}</div>` : ''}
+    ${d.block ? '' : `<button class="btn" data-act="accept">${esc(d.ok || 'स्वीकार करा आणि जतन करा')}</button>`}<button class="btn alt" data-act="reject">बदल करा</button></div></div>`;
+}
+function popupHtml(){
+  const pend = allRequests().filter(r => r.status === 'pending'); if (!pend.length) return '';
+  return `<div class="sheet" style="z-index:55;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:20px" role="dialog" aria-label="नवीन कर्ज अर्ज"><div class="card" style="max-width:420px;width:100%">
+    <h2 style="margin-top:0">${pend.length} नवीन कर्ज अर्ज</h2>${pend.slice(0,3).map(r => `<div class="item" style="cursor:default"><div class="mid"><b>${r.acc} · ${esc(nameOf(r.acc))}</b><small>${dlabel(r.date)}${r.reason ? ' · ' + esc(r.reason) : ''}</small></div><div class="amt num">${inr(r.amt)}</div></div>`).join('')}
+    <button class="btn" data-act="pop-go">अर्ज पाहा</button><button class="btn alt" data-act="pop-close">नंतर</button></div></div>`;
+}
+
+/* ================= interest window ================= */
+function viewInterest(C){
+  const k = S.statusMonth || today().slice(0,7), rows = statusFor(k).filter(r => r.iDue > 0 || r.iPaid > 0 || r.out > 0);
+  const recv = acc => sumBy(S.tx.filter(t => t.type === 'repay' && t.acc === acc && t.date.slice(0,7) === k), t => (t.cash ?? (t.amt + (t.int || 0))) - t.amt);
+  const tDue = sumBy(rows, r => r.iDue), tRecv = sumBy(rows, r => recv(r.m.acc));
+  return `${back()}<h2 style="margin-top:8px">कर्जावरील व्याज</h2>
+  <div class="hint" style="margin:-4px 0 8px">व्याज = महिन्याच्या सुरुवातीची थकबाकी × त्या कर्जाचा व्याजदर. आपोआप मोजले जाते.</div>
+  ${Fs('st-month', 'महिना', monthOptions(C).map(x => [x, mlabel(x)]), k)}
+  <div class="sum2"><div class="card"><b>एकूण व्याज देय</b><span class="big2 num">${inr(tDue)}</span></div><div class="card"><b>प्रत्यक्ष मिळाले</b><span class="big2 num pos">${inr(tRecv)}</span><small style="display:block">फरक ${inr(tRecv - tDue)}</small></div></div>
+  <div class="card list" style="margin-top:12px">${rows.map(r => { const rc = recv(r.m.acc), cr = (C.per[r.m.acc] || {}).credit || 0;
+    return `<div class="item" style="cursor:default;align-items:flex-start"><div class="acc num">${r.m.acc}</div><div class="mid"><b>${esc(r.m.name)}</b>
+      <small class="num">थकबाकी ${inr(r.out)} × ${r.rate}% = देय ${inr(r.iDue)}</small>
+      <div class="stl"><span class="k">मिळाले</span><span class="pill ${r.iPaid > 0 || rc > 0 ? (rc >= r.iDue ? 'good' : 'gold') : 'bad'} num">${inr(rc)}</span><small class="num">${rc - r.iPaid === 0 ? '' : (rc - r.iPaid > 0 ? 'जास्त ' : 'कमी ') + inr(Math.abs(rc - r.iPaid)) + ' क्रेडिटमध्ये'}</small></div>
+      <div class="stl"><span class="k">क्रेडिट</span><b class="num ${cr < 0 ? 'due' : 'pos'}">${inr(cr)}</b><small>${cr < 0 ? 'व्याज बाकी' : cr > 0 ? 'जमा' : ''}</small></div></div></div>`; }).join('') || '<div class="empty"><b>या महिन्यात कर्ज नाही</b>कोणाचेही व्याज देय नाही.</div>'}</div>`;
+}
+
+/* ================= change own password ================= */
+function viewPw(){
+  const pw = (id, l, ac) => `<label for="${id}">${l}</label><input id="${id}" data-keep type="password" autocomplete="${ac}">`;
+  return `${back()}<h2 style="margin-top:8px">पासवर्ड बदला</h2><div class="card"><div class="hint" style="margin:0">आयडी: <b>${esc(S.me.uid)}</b></div>
+    ${pw('pw-old', 'सध्याचा पासवर्ड', 'current-password')}${pw('pw-new', 'नवीन पासवर्ड (किमान ६ अक्षरे)', 'new-password')}${pw('pw-new2', 'नवीन पासवर्ड पुन्हा लिहा', 'new-password')}
+    <button class="btn" data-act="pw-change">पासवर्ड बदला</button></div>`;
+}
+
+/* ================= edit overlay ================= */
+function editSpec(c, d){
+  const dt = ['date', 'date', 'तारीख', d.date], amt = (l, v) => ['amt', 'num', l, v], mode = ['mode', 'mode', 'पद्धत', d.mode || 'रोख'], note = ['note', 'txt', 'टीप', d.note || ''];
+  if (c === 'tx'){
+    if (d.type === 'inst') return {title:'बचत नोंद संपादन', f:[dt, amt('बचत रक्कम (₹)', d.amt), mode, note]};
+    if (d.type === 'loan') return {title:'कर्ज नोंद संपादन', f:[dt, amt('कर्ज रक्कम (₹)', d.amt), ['rate', 'num', 'व्याजदर (% प्रति महिना)', d.rate ?? cfg().rate], mode, note]};
+    if (d.type === 'repay'){ const c0 = d.cash ?? (d.amt + (d.int || 0)); return {title:'हप्ता नोंद संपादन', f:[dt, amt('मुद्दल हप्ता (₹)', d.amt), ['int', 'num', 'व्याज देय/लागू (₹)', d.int || 0], ['recv', 'num', 'व्याज प्रत्यक्ष मिळाले (₹)', c0 - d.amt], mode, note]}; }
+    if (d.type === 'bonus') return {title:'बोनस नोंद संपादन', f:[dt, amt('बोनस रक्कम (₹)', d.amt), ['reason', 'txt', 'कारण', d.reason || '']]};
+  }
+  if (c === 'exp') return {title:'खर्च संपादन', f:[dt, ['cat', 'cat', 'प्रकार', d.cat], amt('रक्कम (₹)', d.amt), mode, ['note', 'txt', 'तपशील', d.note || '']]};
+  if (c === 'invtx') return {title:'गुंतवणूक व्याज/परत संपादन', f:[dt, ['kind', 'kind', 'काय मिळाले', d.kind], amt('रक्कम (₹)', d.amt), note]};
+  if (c === 'invest') return {title:'गुंतवणूक योजना संपादन', f:[['name', 'txt', 'नाव', d.name], ['cat', 'icat', 'प्रकार', d.cat], ['amount', 'num', 'मुद्दल रक्कम (₹)' + (d.mode === 'monthly' ? ' प्रति महिना' : ''), d.amount], ['start', 'date', 'सुरुवात तारीख', d.start], note]};
+  return null;
+}
+const editDoc = () => { const e = S.edit; if (!e) return null; return ({tx:S.tx, exp:S.exp, invtx:S.invtx, invest:S.invest}[e.c] || []).find(x => x.id === e.id) || null; };
+function editHtml(){
+  const d = editDoc(), sp = d && editSpec(S.edit.c, d); if (!sp) return '';
+  const fld = ([k, t, l, v]) => {
+    const id = 'e-' + k;
+    if (t === 'date') return `<label for="${id}">${l}</label><input id="${id}" type="date" value="${esc(v)}">`;
+    if (t === 'num') return `<label for="${id}">${l}</label><input id="${id}" type="number" inputmode="decimal" min="0" step="any" value="${esc(v)}">`;
+    const sel = (opts) => `<label for="${id}">${l}</label><select id="${id}">${opts.map(([a,b]) => `<option value="${esc(a)}" ${String(a) === String(v) ? 'selected' : ''}>${esc(b)}</option>`).join('')}</select>`;
+    if (t === 'mode') return sel(MODES.map(x => [x, x]));
+    if (t === 'cat') return sel(EXP_CATS.map(x => [x, x]));
+    if (t === 'icat') return sel(INV_CATS.map(x => [x, x]));
+    if (t === 'kind') return sel([['int', 'व्याज'], ['ret', 'मुद्दल परत']]);
+    return `<label for="${id}">${l}</label><input id="${id}" type="text" value="${esc(v)}" maxlength="80">`;
+  };
+  return `<div class="sheet" style="z-index:52" role="dialog" aria-label="${esc(sp.title)}"><div class="sheet-top"><b>${esc(sp.title)}</b></div><div class="sheet-in"><div class="card">${sp.f.map(fld).join('')}</div>
+    ${S.edit.c === 'tx' && d.type === 'repay' ? '<div class="hint">व्याज देय आणि प्रत्यक्ष मिळालेल्या व्याजातील फरक क्रेडिटमध्ये जातो.</div>' : ''}
+    <button class="btn" data-act="edit-save">बदल जतन करा</button><button class="btn alt" data-act="edit-cancel">रद्द</button></div></div>`;
+}
+async function editSave(){
+  const d = editDoc(), sp = d && editSpec(S.edit.c, d); if (!sp) { S.edit = null; return render(); }
+  const g = k => val('e-' + k), data = {};
+  for (const [k, t] of sp.f){
+    if (k === 'recv') continue;
+    if (t === 'num'){ const n = +g(k); if (!(n >= 0) || (['amt', 'amount'].includes(k) && !(n > 0))) return toast('रक्कम तपासा'); data[k] = n; }
+    else { data[k] = g(k).trim ? g(k).trim() : g(k); if (t === 'date' && !data[k]) return toast('तारीख निवडा'); }
+  }
+  if (S.edit.c === 'tx' && d.type === 'repay'){ const rc = +g('recv'); if (!(rc >= 0)) return toast('रक्कम तपासा'); data.cash = data.amt + rc; }
+  if (S.edit.c === 'tx' && d.type === 'inst') data.cash = data.amt;
+  try { await S.db.doc(S.edit.c + '/' + S.edit.id).update(data); toast('बदल जतन केला'); S.edit = null; render(); }
+  catch(e){ toast('जतन झाले नाही: ' + ((e && e.code) || 'त्रुटी')); }
+}
+</script>
+<script>
+/* ================= auth (ID + password per member) ================= */
+const hex = b => [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('');
+const newSalt = () => hex(crypto.getRandomValues(new Uint8Array(12)));
+const genPw = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return [...crypto.getRandomValues(new Uint8Array(8))].map(x => c[x % 32]).join(''); };
+async function hashPw(pw, salt){
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+  return hex(await crypto.subtle.deriveBits({name:'PBKDF2', salt:new TextEncoder().encode(salt), iterations:150000, hash:'SHA-256'}, k, 256));
+}
+function remember(uid, h){ try { if (uid) localStorage.setItem('soc_login', JSON.stringify({uid, h})); else localStorage.removeItem('soc_login'); } catch(e){} }
+const loginOn = uid => { const p = S.perms[uid]; return !p || p.enabled !== false; };
+async function setCred(uid, pw, role, acc){
+  const salt = newSalt(), hash = await hashPw(pw, salt);
+  if (S.me && S.me.uid === uid){ S.me.h = hash; remember(uid, hash); }
+  await S.db.doc('auth/' + uid).set({uid, salt, hash, role, acc: acc || 0, ts: Date.now()});
+}
+function refreshAdmin(){ S.admin = !!S.platformAdmin && !!S.me && S.me.role === 'admin'; }
+function revalidate(){
+  if (!S.me){
+    try { const st = JSON.parse(localStorage.getItem('soc_login') || 'null'), a = st && S.auth[st.uid];
+      if (a && a.hash === st.h && (a.role === 'admin' || loginOn(a.uid))) S.me = {uid:a.uid, role:a.role, acc:a.acc, h:a.hash}; } catch(e){}
+  } else { const a = S.auth[S.me.uid]; if (!a || a.hash !== S.me.h || (a.role !== 'admin' && !loginOn(a.uid))){ S.me = null; remember(null); } }
+}
+async function doLogin(){
+  if (Date.now() < S.lockUntil){ S.loginMsg = 'काही वेळाने पुन्हा प्रयत्न करा.'; return render(); }
+  const uid = $('l-id').value.trim().toLowerCase(), pw = $('l-pw').value, a = S.auth[uid];
+  let ok = false;
+  try { ok = !!a && (await hashPw(pw, a.salt)) === a.hash; } catch(e){ S.loginMsg = 'हे ब्राउझर लॉगिनला साथ देत नाही.'; return render(); }
+  if (!ok){
+    S.fails++;
+    if (S.fails >= 5){ S.lockUntil = Date.now() + 30000; S.fails = 0; S.loginMsg = '५ वेळा चुकले. ३० सेकंद थांबा.'; } else S.loginMsg = 'आयडी किंवा पासवर्ड चुकीचा आहे.';
+    render(); const p = $('l-pw'); if (p) p.value = ''; return;
+  }
+  if (a.role !== 'admin' && !loginOn(uid)){ S.loginMsg = 'तुमचे लॉगिन admin ने बंद केले आहे.'; return render(); }
+  S.me = {uid, role:a.role, acc:a.acc, h:a.hash}; remember(uid, a.hash); S.loginMsg = ''; S.fails = 0; S.tab = 'home'; S.lastPend = 0; refreshAdmin(); checkPopup(); render();
+}
+async function setupAdmin(){
+  const p1 = $('s-pw').value, p2 = $('s-pw2').value;
+  if (p1.length < 6){ S.loginMsg = 'पासवर्ड किमान ६ अक्षरांचा ठेवा.'; return render(); }
+  if (p1 !== p2){ S.loginMsg = 'दोन्ही पासवर्ड सारखे नाहीत.'; return render(); }
+  try { await setCred('admin', p1, 'admin', 0); S.loginMsg = ''; toast('admin पासवर्ड ठरला. आता लॉगिन करा.'); }
+  catch(e){ S.loginMsg = 'जतन झाले नाही. तुम्ही admin म्हणून उघडले आहे का?'; render(); }
+}
+function viewGate(){
+  const msg = S.loginMsg ? `<div class="msg" role="alert">${esc(S.loginMsg)}</div>` : '';
+  if (!S.auth.admin){
+    if (S.platformAdmin) return `<div class="card gate"><h1>admin पासवर्ड ठरवा</h1><p>हा पासवर्ड फक्त नोंदी भरण्यासाठी वापरला जाईल. आयडी: <b>admin</b></p>
+      <label for="s-pw">नवीन पासवर्ड</label><input id="s-pw" data-keep type="password" autocomplete="new-password">
+      <label for="s-pw2">पासवर्ड पुन्हा लिहा</label><input id="s-pw2" data-keep type="password" autocomplete="new-password">${msg}
+      <button class="btn" data-act="setup-admin">पासवर्ड जतन करा</button></div>`;
+    return '<div class="empty card gate"><b>ॲप अजून सुरू झालेले नाही</b>admin ने पासवर्ड ठरवल्यावर लॉगिन करता येईल.</div>';
+  }
+  return `<div class="card gate"><h1>लॉगिन</h1><p>admin ने दिलेला आयडी आणि पासवर्ड टाका.</p>
+    <label for="l-id">आयडी</label><input id="l-id" data-keep type="text" autocapitalize="none" autocomplete="username" placeholder="उदा. m001">
+    <label for="l-pw">पासवर्ड</label><input id="l-pw" type="password" autocomplete="current-password">${msg}
+    <button class="btn" data-act="login">लॉगिन करा</button></div>`;
+}
+
+/* ================= helpers ================= */
+function toast(msg){ const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => t.hidden = true, 2800); }
+function ask(title, rows, run, o = {}){ S.confirm = Object.assign({title, rows, run, ok:'स्वीकार करा आणि जतन करा'}, o); render(); }
+const rowFor = (acc, k) => statusFor(k).find(x => x.m.acc === acc);
+const val = id => { const e = $(id); return e ? e.value : ''; };
+function checkPopup(){ if (!S.admin || !S.ready) return; const p = pendingCount(); if (p > S.lastPend) S.popup = true; S.lastPend = p; }
+
+/* ================= render ================= */
+const VIEWS = {home:viewHome, status:viewStatus, loans:viewLoans, entry:viewEntry, more:viewMore, members:viewMembers, tally:viewTally, invest:viewInvest, expenses:viewExpenses, bonus:viewBonus, reports:viewReports, settings:viewSettings, perms:viewPerms, logins:viewLogins, interest:viewInterest, pw:viewPw};
+const GATE = {interest:'loans', status:'status', members:'members', tally:'tally', invest:'invest', expenses:'expenses', bonus:'bonus', reports:'reports'};
+function render(){
+  const C = compute(); S.C = C; refreshAdmin();
+  const ro = $('role');
+  ro.textContent = S.me ? (S.admin ? 'admin' : 'सभासद') + ' · बाहेर पडा' : 'लॉगिन आवश्यक';
+  if (S.me) ro.dataset.act = 'logout'; else delete ro.dataset.act;
+  document.querySelector('.tabs').hidden = !S.me;
+  let tabs = [['home','मुख्यपृष्ठ','home']];
+  if (S.me){
+    if (can('status')) tabs.push(['status','भरणा','check']);
+    if (S.admin || can('loans') || can('apply')) tabs.push(['loans','कर्ज','loan']);
+    if (S.admin) tabs.push(['entry','संकलन','edit']); else if (S.me.acc) tabs.push(['mine','माझे खाते','user']);
+    tabs.push(['more','अधिक','more']);
+  }
+  const pend = S.admin ? pendingCount() : 0;
+  $('tabs').innerHTML = !S.me ? '' : tabs.map(([k,l,i]) => {
+    const cur = S.tab === k || (k === 'more' && !['home','status','loans','entry','mine'].includes(S.tab));
+    return `<button data-act="tab" data-t="${k}" ${cur ? 'aria-current="true"' : ''}>${ICON[i]}<span>${l}</span>${k === 'loans' && pend ? `<span class="dot">${pend}</span>` : ''}</button>`; }).join('');
+  let h;
+  if (S.err) h = `<div class="empty card" style="margin-top:16px"><b>माहिती उघडता आली नाही</b>${esc(S.err)}</div>`;
+  else if (!S.ready) h = '<div class="empty"><b>लोड होत आहे…</b></div>';
+  else if (!S.me) h = viewGate();
+  else {
+    const t = S.tab, fn = VIEWS[t] || viewHome;
+    if (['entry','settings','perms','logins'].includes(t) && !S.admin) h = empty('फक्त admin साठी', 'हे काम फक्त admin करू शकतो.');
+    else if (GATE[t] && !can(GATE[t])) h = back('home') + empty('परवानगी नाही', 'admin ने हे पाहण्याचा अधिकार दिलेला नाही.');
+    else h = fn(C);
+  }
+  const saved = {}; if (S._rt === S.tab) document.querySelectorAll('#view [data-keep]').forEach(e => { if (e.id) saved[e.id] = e.value; });
+  const ae = document.activeElement, fid = ae && ae.id && $('view').contains(ae) ? ae.id : null;
+  let ss = null, se = null; try { if (fid){ ss = ae.selectionStart; se = ae.selectionEnd; } } catch(e){}
+  $('view').innerHTML = h; S._rt = S.tab;
+  Object.entries(saved).forEach(([id,v]) => { const e = $(id); if (e) e.value = v; });
+  if (S.lnApply && S.tab === 'loans' && $('ln-acc')){ const p = S.lnApply; S.lnApply = null; $('ln-acc').value = p.acc; if (p.amt) $('ln-amt').value = p.amt; $('ln-rate').value = p.rate; }
+  if (fid){ const e = $(fid); if (e){ e.focus(); try { if (ss != null && e.setSelectionRange) e.setSelectionRange(ss, se); } catch(x){} } }
+  const cf = $('confirm');
+  const ev = {}; if (S.edit && !cf.hidden) cf.querySelectorAll('[id^="e-"]').forEach(e => ev[e.id] = e.value);
+  if (S.confirm && S.me){ cf.hidden = false; cf.innerHTML = confirmHtml(); }
+  else if (S.edit && S.me && S.admin && editDoc()){ cf.hidden = false; cf.innerHTML = editHtml(); Object.entries(ev).forEach(([id,v]) => { const e = $(id); if (e) e.value = v; }); }
+  else { if (S.edit && !editDoc()) S.edit = null; cf.hidden = true; cf.innerHTML = ''; }
+  const pp = $('popup');
+  if (S.popup && S.admin && pend){ pp.hidden = false; pp.innerHTML = popupHtml(); } else { pp.hidden = true; pp.innerHTML = ''; S.popup = false; }
+  const sh = $('sheet');
+  if (S.sel != null && S.me){ sh.hidden = false; sh.innerHTML = sheetHtml(C); } else { sh.hidden = true; sh.innerHTML = ''; }
+  updateHint();
+}
+let raf = 0; const rerender = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(render); };
+
+/* ================= settings ================= */
+async function saveCfg(patch){ await S.db.doc('settings/main').set(Object.assign({}, cfg(), patch)); }
+
+/* ================= entry: instalment / loan / repayment ================= */
+function entryCommon(){ const {acc, k, r} = enCtx(), date = val('f-date'); return {acc, date, k:date.slice(0,7), r:rowFor(acc, date.slice(0,7)), mode:val('f-mode'), note:val('f-note').trim()}; }
+function saveShare(){
+  const {acc, date, r, mode, note} = entryCommon();
+  if (!acc || !date) return toast('सभासद आणि तारीख निवडा');
+  if (r.sRem <= 0) return toast('या महिन्याची बचत भरली आहे');
+  const doc = {type:'inst', date, acc, amt:r.sRem, cash:r.sRem, mode, note, ts:Date.now()};
+  const rows = [['प्रकार', 'मासिक बचत'], ['सभासद', 'खाते ' + acc + ' · ' + nameOf(acc)], ['तारीख', dlabel(date)], ['बचत रक्कम', inr(r.sRem)], ['पद्धत', mode]]; if (note) rows.push(['टीप', note]);
+  ask('बचत तपासा', rows, async () => { await S.db.collection('tx').add(doc); toast('बचत जतन केली'); }, {extra: r.sArr > 0 ? 'यात मागील बाकी ' + inr(r.sArr) + ' समाविष्ट आहे.' : ''});
+}
+function saveHapta(){
+  const {acc, date, r, mode, note} = entryCommon();
+  if (!acc || !date) return toast('सभासद आणि तारीख निवडा');
+  if (!r || r.hs === 'none') return toast('या सभासदाचे कर्ज नाही');
+  const amt = +val('h-amt') || 0, recv = +val('h-intr') || 0, due = r.iRem;
+  if (!(amt >= 0) || !(recv >= 0)) return toast('रक्कम तपासा');
+  if (!(amt > 0) && !(recv > 0)) return toast('हप्ता किंवा व्याज भरा');
+  const doc = {type:'repay', date, acc, amt, int:due, mode, note, ts:Date.now()}, cash = amt + recv, adj = recv - due; doc.cash = cash;
+  const rows = [['प्रकार', 'कर्ज हप्ता'], ['सभासद', 'खाते ' + acc + ' · ' + nameOf(acc)], ['तारीख', dlabel(date)], ['मुद्दल हप्ता', inr(amt)], ['व्याज देय', inr(due)], ['व्याज मिळाले', inr(recv)], ['एकूण मिळाले', inr(cash)]];
+  if (adj > 0) rows.push(['क्रेडिटमध्ये जमा', inr(adj)]); if (adj < 0) rows.push(['क्रेडिटमधून वजा', inr(-adj)]);
+  rows.push(['पद्धत', mode]); if (note) rows.push(['टीप', note]);
+  const warn = amt > r.out ? `मुद्दल थकबाकीपेक्षा (${inr(r.out)}) जास्त आहे. रक्कम तपासा.` : '', block = amt > r.out;
+  const extra = `मुद्दल देय ${inr(r.hTot)}, या नोंदीनंतर बाकी ${inr(Math.max(0, r.hTot - r.hPaid - amt))}.` + (adj !== 0 ? ' व्याजातील फरक क्रेडिट शिल्लकीत जाईल आणि पुढील महिन्यात जुळवता येईल.' : '');
+  ask('हप्ता तपासा', rows, async () => { await S.db.collection('tx').add(doc); toast('हप्ता जतन केला'); }, {warn, extra, block});
+}
+function saveLoan(){
+  const acc = +val('ln-acc'), amt = +val('ln-amt'), date = val('ln-date'), rate = +(val('ln-rate') || cfg().rate), mode = val('ln-mode'), note = val('ln-note').trim();
+  if (!acc) return toast('सभासद निवडा'); if (!date) return toast('तारीख निवडा'); if (!(amt > 0)) return toast('रक्कम भरा'); if (!(rate >= 0)) return toast('व्याजदर तपासा');
+  const li = loanInfo(acc), tot = li.out + amt, peak = Math.max(li.peak, tot), hap = haptaFor(tot, peak), fromReq = S.fromReq;
+  const rows = [['प्रकार', 'कर्ज दिले'], ['सभासद', 'खाते ' + acc + ' · ' + nameOf(acc)], ['तारीख', dlabel(date)], ['कर्ज रक्कम', inr(amt)], ['व्याजदर (या कर्जासाठी)', rate + '% प्रति महिना'], ['पद्धत', mode]]; if (note) rows.push(['टीप', note]);
+  ask('कर्ज तपासा', rows, async () => {
+    await S.db.collection('tx').add({type:'loan', date, acc, amt, rate, mode, note, ts:Date.now()});
+    if (fromReq) await S.db.doc('decisions/' + fromReq).set({status:'given', note:'', ts:Date.now()});
+    S.fromReq = null; S.ln = {}; ['ln-amt','ln-note'].forEach(i => { const e = $(i); if (e) e.value = ''; }); toast('कर्ज नोंदवले');
+  }, {extra: `या कर्जानंतर एकूण थकबाकी ${inr(tot)}. मासिक हप्ता (मुद्दल) ${inr(hap)} — हा टप्पा कर्जाची सर्वाधिक रक्कम ${inr(peak)} वरून ठरला आणि कर्ज संपेपर्यंत कायम राहील. पुढील महिन्याचे व्याज ${inr(tot * rate / 100)}.`});
+}
+async function changePw(){
+  const o = val('pw-old'), n = val('pw-new'), n2 = val('pw-new2'), a = S.auth[S.me.uid];
+  if (!a) return toast('लॉगिन माहिती सापडली नाही');
+  let ok = false; try { ok = (await hashPw(o, a.salt)) === a.hash; } catch(e){}
+  if (!ok) return toast('सध्याचा पासवर्ड चुकीचा आहे');
+  if (n.length < 6) return toast('नवीन पासवर्ड किमान ६ अक्षरांचा ठेवा');
+  if (n !== n2) return toast('दोन्ही नवीन पासवर्ड सारखे नाहीत');
+  const prev = S.me.h;
+  try { await setCred(S.me.uid, n, S.me.role, S.me.acc); ['pw-old','pw-new','pw-new2'].forEach(i => { const e = $(i); if (e) e.value = ''; }); toast('पासवर्ड बदलला'); }
+  catch(e){ S.me.h = prev; remember(S.me.uid, prev); toast('बदल झाला नाही. admin कडून नवीन पासवर्ड घ्या.'); }
+}
+async function addMember(){
+  const name = val('m-name').trim(); if (!name) return toast('नाव भरा');
+  const acc = S.members.reduce((a,m) => Math.max(a, m.acc), 0) + 1, d = {acc, name:name.toUpperCase(), mobile:val('m-mob').trim()}, j = val('m-join'); if (j) d.joined = j;
+  try { await S.db.doc('members/' + uidFor(acc)).set(d); toast('सभासद जोडला: खाते ' + acc); ['m-name','m-mob','m-join'].forEach(i => { const e = $(i); if (e) e.value = ''; }); }
+  catch(e){ toast('जतन झाले नाही'); }
+}
+
+/* ================= investments, expenses, bonus ================= */
+function ivAdd(){
+  const name = val('iv-name').trim(), amt = +val('iv-amt'); if (!name) return toast('नाव भरा'); if (!(amt > 0)) return toast('रक्कम भरा');
+  const d = {name, cat:val('iv-cat'), mode:val('iv-mode'), amount:amt, start:val('iv-start') || today(), note:val('iv-note').trim()};
+  ask('गुंतवणूक तपासा', [['नाव', name], ['प्रकार', d.cat], ['पद्धत', d.mode === 'monthly' ? 'दर महिन्याला' : 'एकदाच'], ['मुद्दल', inr(amt) + (d.mode === 'monthly' ? ' प्रति महिना' : '')], ['सुरुवात', dlabel(d.start)]],
+    async () => { await S.db.collection('invest').add(d); toast('गुंतवणूक जोडली'); ['iv-name','iv-amt','iv-note'].forEach(i => { const e = $(i); if (e) e.value = ''; }); },
+    {extra: d.mode === 'monthly' ? 'दर महिन्याची रक्कम सोसायटीच्या शिल्लकीतून वजा होईल. थांबवण्यासाठी योजनेवर “मासिक गुंतवणूक थांबवा” दाबा.' : ''});
+}
+function ixAdd(){
+  const amt = +val('ix-amt'), pid = val('ix-plan'); if (!(amt > 0)) return toast('रक्कम भरा'); const p = S.invest.find(x => x.id === pid); if (!p) return toast('योजना निवडा');
+  const kind = val('ix-kind'), d = {planId:pid, kind, date:val('ix-date') || today(), amt, note:val('ix-note').trim(), ts:Date.now()};
+  ask('नोंद तपासा', [['योजना', p.name], ['काय मिळाले', kind === 'int' ? 'व्याज' : 'मुद्दल परत'], ['तारीख', dlabel(d.date)], ['रक्कम', inr(amt)]],
+    async () => { await S.db.collection('invtx').add(d); toast('नोंद जतन केली'); ['ix-amt','ix-note'].forEach(i => { const e = $(i); if (e) e.value = ''; }); });
+}
+function xAdd(){
+  const amt = +val('x-amt'); if (!(amt > 0)) return toast('रक्कम भरा');
+  const d = {date:val('x-date') || today(), cat:val('x-cat'), amt, mode:val('x-mode'), note:val('x-note').trim(), ts:Date.now()};
+  ask('खर्च तपासा', [['तारीख', dlabel(d.date)], ['प्रकार', d.cat], ['रक्कम', inr(amt)], ['पद्धत', d.mode], ['तपशील', d.note || '-']],
+    async () => { await S.db.collection('exp').add(d); toast('खर्च जतन केला'); ['x-amt','x-note'].forEach(i => { const e = $(i); if (e) e.value = ''; }); });
+}
+function bnAdd(){
+  const reason = val('bn-reason').trim(), date = val('bn-date') || today(), list = [];
+  document.querySelectorAll('.bn-i').forEach(e => { const a = +e.value; if (a > 0) list.push({acc:+e.dataset.acc, amt:a}); });
+  if (!reason) return toast('कारण भरा'); if (!list.length) return toast('कोणालाही रक्कम भरलेली नाही');
+  const tot = sumBy(list, x => x.amt), grp = 'g' + Date.now();
+  ask('बोनस तपासा', [['कारण', reason], ['तारीख', dlabel(date)], ['सभासद', String(list.length)], ['एकूण बोनस', inr(tot)]],
+    async () => { for (const x of list) await S.db.collection('tx').add({type:'bonus', date, acc:x.acc, amt:x.amt, reason, grp, mode:'', note:'', ts:Date.now()}); toast('बोनस जतन केला'); },
+    {extra: 'हा बोनस सोसायटीच्या शिल्लकीतून वजा होईल आणि प्रत्येक सभासदाच्या पासबुकमध्ये दिसेल.'});
+}
+
+/* ================= online loan requests ================= */
+async function reqSend(){
+  const amt = +val('rq-amt'); if (!(amt > 0)) return toast('रक्कम भरा');
+  const r = {id:'r' + Date.now().toString(36), date:today(), amt, months:+val('rq-months') || 0, reason:val('rq-reason').trim(), ts:Date.now()};
+  if (!S.pid || !S.db){ S.reqFail = true; return render(); }
+  const mine = S.reqDocs.find(d => d.pid === S.pid), list = [...(mine ? (mine.list || []) : []), r];
+  try { await S.db.doc('requests/' + S.pid).set({pid:S.pid, acc:S.me.acc, uid:S.me.uid, list}); S.reqFail = false; toast('अर्ज पाठवला. admin ला दिसेल.'); ['rq-amt','rq-months','rq-reason'].forEach(i => { const e = $(i); if (e) e.value = ''; }); render(); }
+  catch(e){ S.reqFail = true; render(); }
+}
+function reqDecide(id, status){
+  const r = allRequests().find(x => x.id === id); if (!r) return;
+  ask(status === 'approved' ? 'अर्ज मंजूर करायचा?' : 'अर्ज नाकारायचा?', [['सभासद', r.acc + ' · ' + nameOf(r.acc)], ['रक्कम', inr(r.amt)], ['कारण', r.reason || '-'], ['निर्णय', status === 'approved' ? 'मंजूर' : 'नाकारले']],
+    async () => { await S.db.doc('decisions/' + id).set({status, note:'', ts:Date.now()}); toast(status === 'approved' ? 'अर्ज मंजूर' : 'अर्ज नाकारला'); },
+    {ok: status === 'approved' ? 'मंजूर करा' : 'नाकारा', extra: status === 'approved' ? 'मंजुरीनंतर “कर्ज द्या” दाबून व्याजदरासह कर्ज नोंदवा.' : ''});
+}
+
+/* ================= PDF share ================= */
+async function sharePdf(rep, fname, text){
+  try {
+    toast('PDF बनवत आहे…');
+    const blob = await renderPdf(rep), file = new File([blob], fname, {type:'application/pdf'});
+    try { if (navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file], text}); return; } } catch(e){ if (e && e.name === 'AbortError') return; }
+    if (!S.dl) return toast('या दृश्यात PDF सेव्ह होत नाही');
+    await S.dl.save({filename:fname, data:blob}); toast('PDF सेव्ह केले. आता WhatsApp मध्ये जोडा.');
+  } catch(e){ if (e && e.code === 'declined') return; toast('PDF बनवता आले नाही'); }
+}
+
+/* ================= permissions ================= */
+const permQ = {};
+function setPerm(uid, key, on){
+  permQ[uid] = (permQ[uid] || Promise.resolve()).then(async () => {
+    const cur = S.perms[uid] || {enabled:true, p:{}};
+    const next = {uid, enabled: key === '__en' ? on : cur.enabled !== false, p: Object.assign({}, cur.p || {}, key === '__en' ? {} : {[key]: on})};
+    try { await S.db.doc('perms/' + uid).set(next); } catch(e){ toast('बदल जतन झाला नाही'); render(); }
+  });
+}
+
+/* ================= events ================= */
+document.addEventListener('click', async ev => {
+  const b = ev.target.closest('[data-act]'); if (!b) return;
+  const a = b.dataset.act, d = b.dataset;
+  if (a === 'tab'){
+    S.confirmDel = null;
+    if (d.t === 'mine'){ S.sel = S.me.acc; } else { S.tab = d.t; window.scrollTo(0,0); }
+    render();
+  }
+  else if (a === 'login') doLogin();
+  else if (a === 'setup-admin') setupAdmin();
+  else if (a === 'logout'){ S.me = null; S.sel = null; S.tab = 'home'; S.creds = null; S.lastPend = 0; S.popup = false; remember(null); render(); window.scrollTo(0,0); }
+  else if (a === 'hide-creds'){ S.creds = null; render(); }
+  else if (a === 'copy-creds'){ const box = $('cred-box'); box.select(); try { await navigator.clipboard.writeText(box.value); toast('कॉपी झाले'); } catch(e){ toast('मजकूर निवडला आहे, कॉपी करा'); } }
+  else if (a === 'gen-missing' || a === 'reset-pw'){
+    const list = a === 'reset-pw' ? S.members.filter(m => m.acc === +d.acc) : S.members.filter(m => !S.auth[uidFor(m.acc)]).sort((x,y) => x.acc - y.acc), out = [];
+    try { for (const m of list){ const pw = genPw(); await setCred(uidFor(m.acc), pw, 'member', m.acc); out.push({name:m.name, uid:uidFor(m.acc), pw}); } } catch(e){ toast('काही लॉगिन तयार झाले नाहीत'); }
+    S.creds = out.length ? out : null; render();
+  }
+  else if (a === 'set-admin-pw'){ const pw = val('a-pw'); if (pw.length < 6) return toast('पासवर्ड किमान ६ अक्षरांचा ठेवा'); try { await setCred('admin', pw, 'admin', 0); $('a-pw').value = ''; toast('admin पासवर्ड बदलला'); } catch(e){ toast('बदल झाला नाही'); } }
+  else if (a === 'open'){ const acc = +d.acc; if (S.admin || can('passbooks') || (S.me && S.me.acc === acc)){ S.sel = acc; render(); } else toast('परवानगी नाही'); }
+  else if (a === 'close'){ S.sel = null; render(); }
+  else if (a === 'month'){ S.openMonth = S.openMonth === d.k ? null : d.k; render(); }
+  else if (a === 'sfilter'){ S.sfilter = d.f; render(); }
+  else if (a === 'quick'){ const m = S.statusMonth || today().slice(0,7); S.en = {acc:+d.acc, date: m === today().slice(0,7) ? today() : m + '-01'}; S.tab = 'entry'; S._rt = null; render(); window.scrollTo(0,0); }
+  else if (a === 'use-credit'){
+    const {acc, r} = enCtx(), cr = (S.C.per[acc] || {}).credit || 0; if (!r || r.hs === 'none') return;
+    if (!cr) return toast('या सभासदाचे क्रेडिट शिल्लक नाही');
+    $('h-intr').value = Math.max(0, r.iRem - cr); updateHint(); toast(cr > 0 ? 'क्रेडिट जुळवले' : 'बाकी व्याज जोडले');
+  }
+  else if (a === 'save-share') saveShare();
+  else if (a === 'save-hapta') saveHapta();
+  else if (a === 'save-loan') saveLoan();
+  else if (a === 'pw-change') changePw();
+  else if (a === 'edit'){ if (S.admin){ S.edit = {c:d.c, id:d.id}; render(); } }
+  else if (a === 'edit-cancel'){ S.edit = null; render(); }
+  else if (a === 'edit-save') editSave();
+  else if (a === 'accept'){ const c = S.confirm; S.confirm = null; try { await c.run(); } catch(e){ toast('जतन झाले नाही: ' + ((e && e.code) || 'त्रुटी')); } render(); }
+  else if (a === 'reject'){ S.confirm = null; render(); }
+  else if (a === 'addmem') addMember();
+  else if (a === 'iv-add') ivAdd(); else if (a === 'ix-add') ixAdd(); else if (a === 'x-add') xAdd(); else if (a === 'bn-add') bnAdd();
+  else if (a === 'iv-stop'){ try { await S.db.doc('invest/' + d.id).update({end: today().slice(0,7)}); toast('मासिक गुंतवणूक थांबवली'); } catch(e){ toast('बदल झाला नाही'); } }
+  else if (a === 'bn-fill'){ const v = val('bn-all'); document.querySelectorAll('.bn-i').forEach(e => e.value = v); }
+  else if (a === 'bn-del'){ S.confirmDel = 'bonus:' + d.g; render(); }
+  else if (a === 'bn-del-yes'){ const ids = S.C.ev.filter(e => e.kind === 'bonus' && (e.grp || (e.date + e.reason)) === d.g).map(e => e.id); S.confirmDel = null; try { for (const id of ids) await S.db.doc('tx/' + id).delete(); toast('बोनस हटवला'); } catch(e){ toast('काही नोंदी हटवता आल्या नाहीत'); } }
+  else if (a === 'del'){ S.confirmDel = (d.c || 'tx') + ':' + d.id; render(); }
+  else if (a === 'del-no'){ S.confirmDel = null; render(); }
+  else if (a === 'del-yes'){
+    const c = d.c || 'tx'; S.confirmDel = null;
+    try { if (c === 'invest') for (const t of S.invtx.filter(x => x.planId === d.id)) await S.db.doc('invtx/' + t.id).delete(); await S.db.doc(c + '/' + d.id).delete(); toast('हटवले'); } catch(e){ toast('हटवता आले नाही'); }
+  }
+  else if (a === 'del-samples'){ S.confirmDel = 'samples'; render(); }
+  else if (a === 'del-samples-yes'){ S.confirmDel = null; const ids = S.tx.filter(x => x.note === 'नमुना').map(x => x.id); try { for (const id of ids) await S.db.doc('tx/' + id).delete(); toast('नमुना नोंदी हटवल्या'); } catch(e){ toast('काही नोंदी हटवता आल्या नाहीत'); } }
+  else if (a === 'set-add-share'){ const f = val('st-from'), amt = +val('st-amt'); if (!f || !(amt > 0)) return toast('महिना आणि रक्कम भरा'); const sh = cfg().shares.filter(s => s.from !== f).concat([{from:f, amt}]).sort((x,y) => x.from < y.from ? -1 : 1); try { await saveCfg({shares:sh}); toast('बचत रक्कम बदलली'); $('st-amt').value = ''; } catch(e){ toast('जतन झाले नाही'); } }
+  else if (a === 'set-del-share'){ try { await saveCfg({shares: cfg().shares.filter(s => s.from !== d.from)}); toast('हटवले'); } catch(e){ toast('जतन झाले नाही'); } }
+  else if (a === 'set-save-rate'){ const r = +val('st-rate'); if (!(r >= 0)) return toast('दर तपासा'); try { await saveCfg({rate:r}); toast('व्याजदर जतन केला'); } catch(e){ toast('जतन झाले नाही'); } }
+  else if (a === 'set-save-slabs'){
+    const sl = [0,1,2].map(i => [val('sl-f' + i), val('sl-a' + i)]).filter(x => x[0] !== '' && x[1] !== '').map(x => [+x[0], +x[1]]).filter(x => x[0] >= 0 && x[1] > 0).sort((x,y) => x[0] - y[0]);
+    if (!sl.length) return toast('किमान एक स्लॅब भरा'); try { await saveCfg({slabs:sl}); toast('स्लॅब जतन केले'); } catch(e){ toast('जतन झाले नाही'); }
+  }
+  else if (a === 'set-save-start'){ try { await saveCfg({startMonth:val('st-start')}); toast('जतन केले'); } catch(e){ toast('जतन झाले नाही'); } }
+  else if (a === 'set-save-amob'){ try { await saveCfg({adminMobile:val('st-amob').trim()}); toast('जतन केले'); } catch(e){ toast('जतन झाले नाही'); } }
+  else if (a === 'req-send') reqSend();
+  else if (a === 'req-approve') reqDecide(d.id, 'approved');
+  else if (a === 'req-reject') reqDecide(d.id, 'rejected');
+  else if (a === 'req-give'){ const r = allRequests().find(x => x.id === d.id); if (!r) return; S.fromReq = r.id; S.lnApply = {acc:r.acc, amt:r.amt, rate:cfg().rate}; S.tab = 'loans'; S._rt = null; render(); window.scrollTo(0,0); }
+  else if (a === 'pop-go'){ S.popup = false; S.tab = 'loans'; render(); window.scrollTo(0,0); }
+  else if (a === 'pop-close'){ S.popup = false; render(); }
+  else if (a === 'pb-pdf'){ const acc = +d.acc, m = S.members.find(x => x.acc === acc), rep = pbReport(acc, S.pbFy); sharePdf(rep, 'passbook-' + acc + '-' + today() + '.pdf', 'सर्वज्ञ सोसायटी पासबुक: ' + (m ? m.name : '') + ' (खाते ' + acc + ')'); }
+  else if (a === 'rp-pdf'){ const rep = buildReport(S.C); sharePdf(rep, 'society-' + S.rp.kind + '-' + today() + '.pdf', 'सर्वज्ञ सोसायटी: ' + rep.title + ' · ' + rep.sub); }
+});
+document.addEventListener('input', ev => { const id = ev.target.id; if (id === 'q'){ S.q = ev.target.value; render(); } else if (id === 'h-amt' || id === 'h-intr') updateHint(); });
+document.addEventListener('keydown', ev => { if (ev.key === 'Enter' && ev.target.id === 'l-pw') doLogin(); });
+document.addEventListener('change', ev => {
+  const t = ev.target, id = t.id;
+  if (t.dataset && t.dataset.perm){ setPerm(t.dataset.uid, t.dataset.perm, t.checked); return; }
+  if (id === 'f-acc' || id === 'f-date'){ S.en = {acc:+val('f-acc'), date:val('f-date') || today()}; ['h-amt','h-intr'].forEach(i => { const e = $(i); if (e) e.removeAttribute('data-keep'); }); render(); }
+  else if (id === 'st-month'){ S.statusMonth = t.value; render(); }
+  else if (id === 'x-fy'){ S.expFy = t.value; render(); }
+  else if (id === 'pb-fy'){ S.pbFy = t.value; render(); }
+  else if (id === 'rp-kind'){ S.rp.kind = t.value; render(); }
+  else if (id === 'rp-period'){ S.rp.period = t.value; render(); }
+  else if (id === 'rp-fy'){ S.rp.fy = t.value; render(); }
+  else if (id === 'rp-month'){ S.rp.month = t.value; render(); }
+  else if (id === 'rp-acc'){ S.rp.acc = t.value; render(); }
+  else if (id === 'rp-from'){ S.rp.from = t.value; render(); }
+  else if (id === 'rp-to'){ S.rp.to = t.value; render(); }
+});
+
+/* ================= boot ================= */
+(async () => {
+  render();
+  const claude = window.claude;
+  try { const user = claude && await claude.use('user'); S.platformAdmin = !!user && ((await user.canEdit()) || (await user.isOwner())); S.pid = user ? await user.id() : null; } catch(e){}
+  try { S.dl = claude && await claude.use('downloads'); } catch(e){}
+  const db = claude && await claude.use('db');
+  if (!db){ S.err = 'कृपया claude.ai मध्ये लॉगिन करा. admin ने तुम्हाला आमंत्रित केलेले असावे.'; render(); return; }
+  S.db = db;
+  const names = ['members','tx','invest','invtx','exp','auth','perms','requests','decisions','settings'], got = {};
+  const upd = () => { S.ready = names.every(n => got[n]); if (S.ready){ revalidate(); refreshAdmin(); checkPopup(); } rerender(); };
+  const fail = e => { S.err = 'प्रवेश मिळाला नाही (' + (e && e.code || 'त्रुटी') + ').'; render(); };
+  const arr = (n, key) => db.collection(n).onSnapshot(s => { S[key] = s.docs.map(d => Object.assign({}, d.data(), {id:d.id})); got[n] = 1; upd(); }, fail);
+  const map = (n, key) => db.collection(n).onSnapshot(s => { S[key] = {}; s.docs.forEach(d => S[key][d.id] = d.data()); got[n] = 1; upd(); }, fail);
+  arr('members','members'); arr('tx','tx'); arr('invest','invest'); arr('invtx','invtx'); arr('exp','exp');
+  map('auth','auth'); map('perms','perms'); map('decisions','decisions');
+  if (S.platformAdmin) db.collection('requests').onSnapshot(s => { S.reqDocs = s.docs.map(d => d.data()); got.requests = 1; upd(); }, fail);
+  else if (S.pid) db.doc('requests/' + S.pid).onSnapshot(s => { const v = s.exists ? s.data() : null; S.reqDocs = v ? [v] : []; got.requests = 1; upd(); }, () => { S.reqDocs = []; got.requests = 1; upd(); });
+  else { S.reqDocs = []; got.requests = 1; }
+  db.collection('settings').onSnapshot(s => { const m = s.docs.find(d => d.id === 'main'); S.settingsDoc = m ? m.data() : null; got.settings = 1; upd(); }, fail);
+})();
+</script>
+
+<script src="fblayer.js"></script>
+</body></html>

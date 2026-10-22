@@ -1,0 +1,611 @@
+{
+ "_format": "society-backup-v1",
+ "members": [
+  {
+   "id": "m001",
+   "data": {
+    "acc": 1,
+    "mobile": "",
+    "name": "VIJAY DINKAR SONAWANE"
+   }
+  },
+  {
+   "id": "m002",
+   "data": {
+    "acc": 2,
+    "mobile": "",
+    "name": "HEMANT SUDAM SONAWANE"
+   }
+  },
+  {
+   "id": "m003",
+   "data": {
+    "acc": 3,
+    "mobile": "",
+    "name": "CHANDRABHAN ARJUN SONAWANE"
+   }
+  },
+  {
+   "id": "m004",
+   "data": {
+    "acc": 4,
+    "mobile": "",
+    "name": "AMOL DINKAR SONAWANE"
+   }
+  },
+  {
+   "id": "m005",
+   "data": {
+    "acc": 5,
+    "mobile": "",
+    "name": "SAGAR ARUN SONAWANE"
+   }
+  },
+  {
+   "id": "m006",
+   "data": {
+    "acc": 6,
+    "mobile": "",
+    "name": "AKSHAY ARUN SONAWANE"
+   }
+  },
+  {
+   "id": "m007",
+   "data": {
+    "acc": 7,
+    "mobile": "",
+    "name": "SUJIT DNYANESHWAR SONAWANE"
+   }
+  },
+  {
+   "id": "m008",
+   "data": {
+    "acc": 8,
+    "mobile": "",
+    "name": "NILESH LAXMAN SONAWANE"
+   }
+  },
+  {
+   "id": "m009",
+   "data": {
+    "acc": 9,
+    "mobile": "",
+    "name": "VINOD LAXMAN SONAWANE"
+   }
+  },
+  {
+   "id": "m010",
+   "data": {
+    "acc": 10,
+    "mobile": "",
+    "name": "AJIT LAXMAN SONAWANE"
+   }
+  },
+  {
+   "id": "m011",
+   "data": {
+    "acc": 11,
+    "mobile": "",
+    "name": "SATISH INDRABHAN SONAWANE"
+   }
+  },
+  {
+   "id": "m012",
+   "data": {
+    "acc": 12,
+    "mobile": "",
+    "name": "AKASH DILIP SONAWANE"
+   }
+  },
+  {
+   "id": "m013",
+   "data": {
+    "acc": 13,
+    "mobile": "",
+    "name": "DIPAK GANPAT SONAWANE"
+   }
+  },
+  {
+   "id": "m014",
+   "data": {
+    "acc": 14,
+    "mobile": "",
+    "name": "SOMNATH ASHOK SONAWANE"
+   }
+  },
+  {
+   "id": "m015",
+   "data": {
+    "acc": 15,
+    "mobile": "",
+    "name": "MAHESH SUDAM SONAWANE"
+   }
+  },
+  {
+   "id": "m016",
+   "data": {
+    "acc": 16,
+    "mobile": "",
+    "name": "DIPAK PARASHRAM SONAWANE"
+   }
+  },
+  {
+   "id": "m017",
+   "data": {
+    "acc": 17,
+    "mobile": "",
+    "name": "RAVINDRA INDRABHAN SONAWANE"
+   }
+  },
+  {
+   "id": "m018",
+   "data": {
+    "acc": 18,
+    "mobile": "",
+    "name": "AMOL DHONDIBA SONAWANE"
+   }
+  },
+  {
+   "id": "m019",
+   "data": {
+    "acc": 19,
+    "mobile": "",
+    "name": "AJAY BALU JADHAV"
+   }
+  },
+  {
+   "id": "m020",
+   "data": {
+    "acc": 20,
+    "mobile": "",
+    "name": "NITIN DILIP SONAWANE"
+   }
+  },
+  {
+   "id": "m021",
+   "data": {
+    "acc": 21,
+    "mobile": "",
+    "name": "ANIL MARUTI WAJE"
+   }
+  },
+  {
+   "id": "m022",
+   "data": {
+    "acc": 22,
+    "mobile": "",
+    "name": "RUSHIKESH BHASKAR SONAWANE"
+   }
+  },
+  {
+   "id": "m023",
+   "data": {
+    "acc": 23,
+    "mobile": "",
+    "name": "RUSHIKESH POPAT SONAWANE"
+   }
+  },
+  {
+   "id": "m024",
+   "data": {
+    "acc": 24,
+    "mobile": "",
+    "name": "ABHAY YOGESH SONAWANE"
+   }
+  },
+  {
+   "id": "m025",
+   "data": {
+    "acc": 25,
+    "joined": "2026-10",
+    "mobile": "123456789",
+    "name": "SHUBHAM BHAUSAHEB SONAWANE"
+   }
+  }
+ ],
+ "tx": [
+  {
+   "id": "3tvuc79swy1dm6kwcsmn",
+   "data": {
+    "acc": 2,
+    "amt": 2000,
+    "date": "2026-10-21",
+    "mode": "रोख",
+    "note": "",
+    "ts": 1792603244679,
+    "type": "inst"
+   }
+  },
+  {
+   "id": "99zlxpt1v72p8vh1vx9u",
+   "data": {
+    "acc": 1,
+    "amt": 2500,
+    "date": "2026-10-21",
+    "int": 220,
+    "mode": "रोख",
+    "note": "",
+    "ts": 1792592204741,
+    "type": "repay"
+   }
+  },
+  {
+   "id": "er75550mpvk1ceho7gdw",
+   "data": {
+    "acc": 5,
+    "amt": 5000,
+    "date": "2026-10-21",
+    "int": 200,
+    "mode": "रोख",
+    "note": "",
+    "ts": 1792604190675,
+    "type": "repay"
+   }
+  },
+  {
+   "id": "o42xs179y92kqjmr8a3b",
+   "data": {
+    "acc": 1,
+    "amt": 1000,
+    "date": "2026-10-21",
+    "mode": "रोख",
+    "note": "",
+    "ts": 1792591498390,
+    "type": "inst"
+   }
+  },
+  {
+   "id": "qf3rlvxdj6o275wcnc7x",
+   "data": {
+    "acc": 1,
+    "amt": 10000,
+    "date": "2026-09-01",
+    "mode": "रोख",
+    "note": "",
+    "rate": 2,
+    "ts": 1792592098022,
+    "type": "loan"
+   }
+  },
+  {
+   "id": "sdemiceupknp8eul262e",
+   "data": {
+    "acc": 5,
+    "amt": 10000,
+    "date": "2026-10-21",
+    "mode": "रोख",
+    "note": "",
+    "rate": 2,
+    "ts": 1792604127271,
+    "type": "loan"
+   }
+  },
+  {
+   "id": "tijztg459p832tzlf98u",
+   "data": {
+    "acc": 1,
+    "amt": 1000,
+    "date": "2026-10-21",
+    "mode": "रोख",
+    "note": "",
+    "ts": 1792592188658,
+    "type": "inst"
+   }
+  }
+ ],
+ "invest": [],
+ "invtx": [],
+ "exp": [],
+ "auth": [
+  {
+   "id": "m001",
+   "data": {
+    "acc": 1,
+    "hash": "b1a05972fd0d99a1cc0bc3c8e381726493ed98d27a3762259503479993b8c055",
+    "role": "member",
+    "salt": "89ab22cf68f59cd1eb50924c",
+    "ts": 1792582747105,
+    "uid": "m001"
+   }
+  },
+  {
+   "id": "m002",
+   "data": {
+    "acc": 2,
+    "hash": "4817c6a811eec16260011d4244da968bfad3402311eb006977f4cdeaba4d5c68",
+    "role": "member",
+    "salt": "c522daee46cb081e46cc2029",
+    "ts": 1792628151250,
+    "uid": "m002"
+   }
+  },
+  {
+   "id": "m003",
+   "data": {
+    "acc": 3,
+    "hash": "8820dfbba30efac421c2576f68fb9ed9c22a3fb5747a77590a2d48cb5098f607",
+    "role": "member",
+    "salt": "d6b6e96d15ba876a615bbcbf",
+    "ts": 1792582721225,
+    "uid": "m003"
+   }
+  },
+  {
+   "id": "m004",
+   "data": {
+    "acc": 4,
+    "hash": "7f72a52fbfd3c3a4845b2194fafc4371a2cd2fd949f7ba44ae6f99437ba61ff9",
+    "role": "member",
+    "salt": "6eee2b94ae346e9b6de5255d",
+    "ts": 1792582721807,
+    "uid": "m004"
+   }
+  },
+  {
+   "id": "m005",
+   "data": {
+    "acc": 5,
+    "hash": "cfca176f9064175eb984e83dd9b2415ef46d74f4dacc8bd82ef88d2295d236f7",
+    "role": "member",
+    "salt": "7d2aaa42e49234f3e3533e10",
+    "ts": 1792603586975,
+    "uid": "m005"
+   }
+  },
+  {
+   "id": "m006",
+   "data": {
+    "acc": 6,
+    "hash": "c3e14823b07484d0718c3f78bb06032e8015056add9dedb5b817d796bf5ad760",
+    "role": "member",
+    "salt": "6dcfc12f36959f3482eff091",
+    "ts": 1792579959328,
+    "uid": "m006"
+   }
+  },
+  {
+   "id": "m007",
+   "data": {
+    "acc": 7,
+    "hash": "57f2ebbcd6a8fc09d6f6492786bb7a82e244fa22280decd362104149531d81f3",
+    "role": "member",
+    "salt": "72785773d85d85c8a8aa5a2e",
+    "ts": 1792582722935,
+    "uid": "m007"
+   }
+  },
+  {
+   "id": "m008",
+   "data": {
+    "acc": 8,
+    "hash": "698a1df516e93c869c46e58dba1aeebf232982c121da7c1a1fd2b6809a112344",
+    "role": "member",
+    "salt": "946a97a56fd7bb6a00a9424f",
+    "ts": 1792582723484,
+    "uid": "m008"
+   }
+  },
+  {
+   "id": "m009",
+   "data": {
+    "acc": 9,
+    "hash": "4e03b47c6939df2c8c25cf59abff3a23c444adaa4b4e5f54dc32bb733d62cfdf",
+    "role": "member",
+    "salt": "e77d7dd008bee4a19811a923",
+    "ts": 1792582724204,
+    "uid": "m009"
+   }
+  },
+  {
+   "id": "m010",
+   "data": {
+    "acc": 10,
+    "hash": "40947353f7a1bf49619a7b72829ae6280d0f4dcc5bd39645c60e0adf9454c607",
+    "role": "member",
+    "salt": "2ce463ba31a0bef7e77b2661",
+    "ts": 1792582724874,
+    "uid": "m010"
+   }
+  },
+  {
+   "id": "m011",
+   "data": {
+    "acc": 11,
+    "hash": "f3946685275fb5a586cfa3894e4db74208254ea83662ac9b55eff8ace08e581c",
+    "role": "member",
+    "salt": "3e6787fb6198a0e02dc709ea",
+    "ts": 1792582725786,
+    "uid": "m011"
+   }
+  },
+  {
+   "id": "m012",
+   "data": {
+    "acc": 12,
+    "hash": "f2060ad8aea4c88c0a9f5865d4399d89e2c91d2a4c74781589bf2403d24be550",
+    "role": "member",
+    "salt": "ead8db6270dacaa4749cb517",
+    "ts": 1792582726400,
+    "uid": "m012"
+   }
+  },
+  {
+   "id": "m013",
+   "data": {
+    "acc": 13,
+    "hash": "6d50c0751d0de4fc31be49d76a26c2ca0bf6ba6bc1fcbfd52c017ba4b15416d2",
+    "role": "member",
+    "salt": "8b1d4b3bf7f321d1840ae703",
+    "ts": 1792582726945,
+    "uid": "m013"
+   }
+  },
+  {
+   "id": "m014",
+   "data": {
+    "acc": 14,
+    "hash": "4711fe0a8bd3d6883a2744a2778c35df3f1c79611529abf0bdf3b062b446ef0d",
+    "role": "member",
+    "salt": "9d0f1dbc53f7d617b5bda4e1",
+    "ts": 1792582727542,
+    "uid": "m014"
+   }
+  },
+  {
+   "id": "m015",
+   "data": {
+    "acc": 15,
+    "hash": "86f623fc36739ffc7abdb8174b7bbd4f40bbf0bbf1a2755afd5e46f3eb490d5b",
+    "role": "member",
+    "salt": "2de5e6647e380ec7c68ce373",
+    "ts": 1792582728086,
+    "uid": "m015"
+   }
+  },
+  {
+   "id": "m016",
+   "data": {
+    "acc": 16,
+    "hash": "32c3f16af33c6641b6afa09795aa11c157bfe8b43ef0e5c514214ae036f430c8",
+    "role": "member",
+    "salt": "356d389702160c2b441d670a",
+    "ts": 1792582728644,
+    "uid": "m016"
+   }
+  },
+  {
+   "id": "m017",
+   "data": {
+    "acc": 17,
+    "hash": "832d42b6d6c1dfd3192b96540a6c647f3a06f3cc383c24dd134d3a7c46d75590",
+    "role": "member",
+    "salt": "2322819153db287420010373",
+    "ts": 1792582729178,
+    "uid": "m017"
+   }
+  },
+  {
+   "id": "m018",
+   "data": {
+    "acc": 18,
+    "hash": "adc07d929a8a809a0c18c9e50001189245656119efbfc769ce15d2bd39998bc7",
+    "role": "member",
+    "salt": "2d237453c0916af2f5b6cf38",
+    "ts": 1792582729719,
+    "uid": "m018"
+   }
+  },
+  {
+   "id": "m019",
+   "data": {
+    "acc": 19,
+    "hash": "3e16890ad788b983cad270a7243832ee284fe72bbcfa1ab3354ba0d6d1712500",
+    "role": "member",
+    "salt": "9249fc5224ebc7a9c3b4503a",
+    "ts": 1792582730435,
+    "uid": "m019"
+   }
+  },
+  {
+   "id": "m020",
+   "data": {
+    "acc": 20,
+    "hash": "e3c2a25c7562cedc7d3b9e82c5bf1458ab981782c8e83b34d8f2c763cfd6e5a5",
+    "role": "member",
+    "salt": "982ae6bf8ad54443b18f9838",
+    "ts": 1792582731258,
+    "uid": "m020"
+   }
+  },
+  {
+   "id": "m021",
+   "data": {
+    "acc": 21,
+    "hash": "7685cbd5bfd2613fee39e08ba01dda948a57e37e43d04c9763bdee1f1576f3ab",
+    "role": "member",
+    "salt": "fdf7455ca46ebc3615047335",
+    "ts": 1792582731823,
+    "uid": "m021"
+   }
+  },
+  {
+   "id": "m022",
+   "data": {
+    "acc": 22,
+    "hash": "debf3c8f4f8434df266775b8f3efcb1198b3491c1bfc18a009fd625590bdc934",
+    "role": "member",
+    "salt": "e4837be3534bb97e26f014da",
+    "ts": 1792582738879,
+    "uid": "m022"
+   }
+  },
+  {
+   "id": "m023",
+   "data": {
+    "acc": 23,
+    "hash": "386dc31e157e8ade4d91a01aa1d5625b367f55c21e5cb68754d8a554a35681a8",
+    "role": "member",
+    "salt": "3521b2f9b1afb4418eb24aa0",
+    "ts": 1792582732929,
+    "uid": "m023"
+   }
+  },
+  {
+   "id": "m024",
+   "data": {
+    "acc": 24,
+    "hash": "0f5c825691f3f4c4fdb3038fb9586c1c2986521aa98342ce61e47a459a1f159d",
+    "role": "member",
+    "salt": "b91b233e783263d69cbcca99",
+    "ts": 1792582733648,
+    "uid": "m024"
+   }
+  },
+  {
+   "id": "m025",
+   "data": {
+    "acc": 25,
+    "hash": "4ba0f9d07d3d3743521127a63973bbbb6032d290d7782d19d9aa88bc19cf62f2",
+    "role": "member",
+    "salt": "3d6f35b2c8e5d7fd8967e448",
+    "ts": 1792582734572,
+    "uid": "m025"
+   }
+  }
+ ],
+ "perms": [],
+ "settings": [
+  {
+   "id": "main",
+   "data": {
+    "adminMobile": "8888198997",
+    "rate": 2,
+    "shares": [
+     {
+      "amt": 1000,
+      "from": "2000-01"
+     },
+     {
+      "amt": 1000,
+      "from": "2026-10"
+     }
+    ],
+    "slabs": [
+     [
+      10000,
+      2000
+     ],
+     [
+      25000,
+      2500
+     ],
+     [
+      40000,
+      3000
+     ]
+    ],
+    "startMonth": ""
+   }
+  }
+ ]
+}
