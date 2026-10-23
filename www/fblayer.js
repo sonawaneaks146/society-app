@@ -2,8 +2,9 @@
    members keep the app's own ID + password login (auth/<id> documents). */
 (function () {
   if (window.__FB_BAD) return;
-  var auth = firebase.auth(), ADMIN = 'admin@society.app', adminSub = false;
+  var auth = firebase.auth(), ADMIN = (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.adminEmail) || 'admin@society.app', adminSub = false;
   var isAdminUser = function () { return !!auth.currentUser && auth.currentUser.email === ADMIN; };
+  var doReload = function () { (window.__testReload || function () { location.reload(); })(); };
   var _doLogin = doLogin, _revalidate = revalidate, _setCred = setCred, _changePw = changePw;
 
   function adminOn() {
@@ -16,13 +17,25 @@
     checkPopup();
   }
 
+  var _gate = viewGate;
   window.viewGate = function () {
+    if (S.forgot) { var had = S.auth.admin; if (!had) S.auth.admin = {}; try { return _gate(); } finally { if (!had) delete S.auth.admin; } }
     var msg = S.loginMsg ? '<div class="msg" role="alert">' + esc(S.loginMsg) + '</div>' : '';
     return '<div class="card gate"><h1>लॉगिन</h1><p>तुमचा आयडी आणि पासवर्ड टाका. (admin साठी आयडी: admin)</p>' +
       '<label for="l-id">आयडी</label><input id="l-id" data-keep type="text" autocapitalize="none" autocomplete="username" placeholder="उदा. m001">' +
       '<label for="l-pw">पासवर्ड</label><input id="l-pw" type="password" autocomplete="current-password">' + msg +
-      '<button class="btn" data-act="login">लॉगिन करा</button></div>';
+      '<button class="btn" data-act="login">लॉगिन करा</button>' +
+      '<button class="back" data-act="fg-open" style="margin-top:12px">सभासद: पासवर्ड विसरलात?</button>' +
+      '<button class="back" data-act="fg-admin" style="margin-top:4px">admin: पासवर्ड विसरलात? (ईमेलवर रीसेट)</button></div>';
   };
+  document.addEventListener('click', async function (ev) {
+    if (!ev.target.closest('[data-act=fg-admin]')) return;
+    if (ADMIN === 'admin@society.app') return toast('admin चा खरा ईमेल अजून ठरवलेला नाही. मार्गदर्शकातील “admin ईमेल सेटअप” करा.');
+    var m = ADMIN.replace(/^(.).*(@.*)$/, '$1***$2');
+    if (!window.confirm('admin पासवर्ड रीसेट लिंक ' + m + ' वर पाठवायची?')) return;
+    try { await auth.sendPasswordResetEmail(ADMIN); toast('रीसेट लिंक ' + m + ' वर पाठवली. ईमेल (स्पॅम सह) तपासा.'); }
+    catch (e) { toast((e && e.code === 'auth/network-request-failed') ? 'इंटरनेट तपासा.' : 'लिंक पाठवता आली नाही'); }
+  });
 
   window.doLogin = async function () {
     var idEl = $('l-id'), uid = idEl ? idEl.value.trim().toLowerCase() : '';
@@ -69,10 +82,12 @@
     S.pid = u.uid;
     if (u.email !== ADMIN && S.platformAdmin) { S.platformAdmin = false; S.reqDocs = []; S.pwreqs = []; adminSub = false; refreshAdmin(); rerender(); }
   });
-  document.addEventListener('click', function (ev) { if (ev.target.closest('[data-act=logout]') && isAdminUser()) auth.signOut(); }, true);
+  document.addEventListener('click', function (ev) { if (ev.target.closest('[data-act=logout]') && isAdminUser()) auth.signOut().then(function () { setTimeout(doReload, 120); }); }, true);
+  /* app auto-lock logged the admin out of the app: also drop the Firebase admin session */
+  setInterval(function () { if (isAdminUser() && !(S.me && S.me.uid === 'admin') && S.ready) auth.signOut().then(doReload); }, 3000);
 
   /* backup + import (admin) */
-  var COLS = ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices'], backupText = null;
+  var COLS = ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices', 'profiles'], backupText = null;
   function snapshotAll() {
     var out = { _format: 'society-backup-v1' };
     var strip = function (x) { var d = Object.assign({}, x), id = d.id; delete d.id; return { id: id, data: d }; };
@@ -81,6 +96,7 @@
     out.perms = Object.keys(S.perms).map(function (k) { return { id: k, data: S.perms[k] }; });
     out.decisions = Object.keys(S.decisions).map(function (k) { return { id: k, data: S.decisions[k] }; });
     out.polls = S.polls.map(strip); out.votes = S.votes.map(strip); out.notices = S.notices.map(strip);
+    out.profiles = Object.keys(S.profiles).map(function (k) { return { id: k, data: S.profiles[k] }; });
     out.settings = S.settingsDoc ? [{ id: 'main', data: S.settingsDoc }] : [];
     return out;
   }

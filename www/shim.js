@@ -1,7 +1,7 @@
 /* shim.js: lets the society app run as a standalone app (APK) on Firebase.
    It provides the same window.claude.use('db' | 'user' | 'downloads') the app expects. */
 (function () {
-  var cfg = window.FIREBASE_CONFIG, ADMIN_EMAIL = 'admin@society.app';
+  var cfg = window.FIREBASE_CONFIG, ADMIN_EMAIL = (window.FIREBASE_CONFIG && window.FIREBASE_CONFIG.adminEmail) || 'admin@society.app';
   function fatal(msg) {
     window.__FB_BAD = true;
     var show = function () {
