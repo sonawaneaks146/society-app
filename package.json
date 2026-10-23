@@ -5,6 +5,7 @@
   "description": "Sarvadnya Society tally app (Android)",
   "dependencies": {
     "@capacitor/android": "^6.1.2",
+    "@capacitor/app": "^6.0.1",
     "@capacitor/core": "^6.1.2",
     "@capacitor/filesystem": "^6.0.1",
     "@capacitor/local-notifications": "^6.1.0",
