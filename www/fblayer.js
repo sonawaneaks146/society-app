@@ -82,7 +82,14 @@
     S.pid = u.uid;
     if (u.email !== ADMIN && S.platformAdmin) { S.platformAdmin = false; S.reqDocs = []; S.pwreqs = []; adminSub = false; refreshAdmin(); rerender(); }
   });
-  document.addEventListener('click', function (ev) { if (ev.target.closest('[data-act=logout]') && isAdminUser()) auth.signOut().then(function () { setTimeout(doReload, 120); }); }, true);
+  var _doLogout = doLogout;
+  window.doLogout = function () { if (isAdminUser()) auth.signOut().then(function () { setTimeout(doReload, 120); }); _doLogout(); };
+  /* Android back button + exit (needs @capacitor/app) */
+  var APP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+  if (APP) {
+    window.fbExit = function () { APP.exitApp(); };
+    APP.addListener('backButton', function () { if (window.backPress) window.backPress(); });
+  }
   /* app auto-lock logged the admin out of the app: also drop the Firebase admin session */
   setInterval(function () { if (isAdminUser() && !(S.me && S.me.uid === 'admin') && S.ready) auth.signOut().then(doReload); }, 3000);
 
