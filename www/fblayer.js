@@ -86,8 +86,22 @@
   /* app auto-lock logged the admin out of the app: also drop the Firebase admin session */
   setInterval(function () { if (isAdminUser() && !(S.me && S.me.uid === 'admin') && S.ready) auth.signOut().then(doReload); }, 3000);
 
+
+  /* phone notifications through @capacitor/local-notifications (shown in the phone's notification panel) */
+  var LN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.LocalNotifications;
+  if (LN) {
+    var ready = function () { return LN.checkPermissions().then(function (p) { return p.display === 'granted' ? p : LN.requestPermissions(); }).then(function (p) { return p.display === 'granted'; }); };
+    window.fbNotify = function (title, body) {
+      ready().then(function (ok) {
+        if (!ok) return;
+        return LN.schedule({ notifications: [{ id: Math.floor(Math.random() * 2000000000), title: trS(title), body: trS(body || ''), schedule: { at: new Date(Date.now() + 400) } }] });
+      }).catch(function () {});
+    };
+    setTimeout(function () { ready().catch(function () {}); }, 3000);
+  }
+
   /* backup + import (admin) */
-  var COLS = ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices', 'profiles'], backupText = null;
+  var COLS = ['members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices', 'profiles', 'ballots'], backupText = null;
   function snapshotAll() {
     var out = { _format: 'society-backup-v1' };
     var strip = function (x) { var d = Object.assign({}, x), id = d.id; delete d.id; return { id: id, data: d }; };
@@ -96,6 +110,7 @@
     out.perms = Object.keys(S.perms).map(function (k) { return { id: k, data: S.perms[k] }; });
     out.decisions = Object.keys(S.decisions).map(function (k) { return { id: k, data: S.decisions[k] }; });
     out.polls = S.polls.map(strip); out.votes = S.votes.map(strip); out.notices = S.notices.map(strip);
+    out.ballots = S.ballots.map(strip);
     out.profiles = Object.keys(S.profiles).map(function (k) { return { id: k, data: S.profiles[k] }; });
     out.settings = S.settingsDoc ? [{ id: 'main', data: S.settingsDoc }] : [];
     return out;
