@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "33834275319",
+    "project_id": "sarvadnya-society-75b48",
+    "storage_bucket": "sarvadnya-society-75b48.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:33834275319:android:5b7b347e1f95bac8fb5ef2",
+        "android_client_info": {
+          "package_name": "com.sarvadnya.society"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBW-TshJ-o14mXlnlgS9dZBOeUiJvErTkA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
