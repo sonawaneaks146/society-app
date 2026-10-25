@@ -83,7 +83,7 @@
     if (u.email !== ADMIN && S.platformAdmin) { S.platformAdmin = false; S.reqDocs = []; S.pwreqs = []; adminSub = false; refreshAdmin(); rerender(); }
   });
   var _doLogout = doLogout;
-  window.doLogout = function () { if (isAdminUser()) auth.signOut().then(function () { setTimeout(doReload, 120); }); _doLogout(); };
+  window.doLogout = function () { if (window.fbPushOff) window.fbPushOff(); if (isAdminUser()) auth.signOut().then(function () { setTimeout(doReload, 120); }); _doLogout(); };
   /* Android back button + exit (needs @capacitor/app) */
   var APP = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
   if (APP) {
@@ -107,8 +107,30 @@
     setTimeout(function () { ready().catch(function () {}); }, 3000);
   }
 
+  /* real push notifications (work even when the app is closed): @capacitor/push-notifications + Cloud Function */
+  var PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
+  if (PN) {
+    var pushUid = null, pushTok = null;
+    var savePush = function () {
+      if (!pushTok || !S.me || !S.db) return;
+      pushUid = S.me.uid;
+      S.db.doc('fcm/' + S.me.uid).set({ token: pushTok, uid: S.me.uid, acc: S.me.acc || null, ts: Date.now() }).then(function () { window.fbPushOn = true; }).catch(function () {});
+    };
+    PN.addListener('registration', function (t) { pushTok = t.value; savePush(); });
+    PN.addListener('registrationError', function () { window.fbPushOn = false; });
+    PN.addListener('pushNotificationReceived', function (n) { if (window.fbNotify) window.fbNotify(n.title || '', n.body || ''); });
+    window.fbPushOff = function () { try { if (S.me && S.db) S.db.doc('fcm/' + S.me.uid).delete(); } catch (e) {} pushUid = null; window.fbPushOn = false; };
+    setInterval(function () {
+      if (!S.me || !S.ready || pushUid === S.me.uid) return;
+      PN.checkPermissions().then(function (p) { return p.receive === 'granted' ? p : PN.requestPermissions(); }).then(function (p) {
+        if (p.receive !== 'granted') return;
+        if (pushTok) savePush(); else PN.register();
+      }).catch(function () {});
+    }, 4000);
+  }
+
   /* backup + import (admin) */
-  var COLS = ['bank', 'loanfeed', 'members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices', 'profiles', 'ballots'], backupText = null;
+  var COLS = ['bank', 'loanfeed', 'chg', 'members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices', 'profiles', 'ballots'], backupText = null;
   function snapshotAll() {
     var out = { _format: 'society-backup-v1' };
     var strip = function (x) { var d = Object.assign({}, x), id = d.id; delete d.id; return { id: id, data: d }; };
