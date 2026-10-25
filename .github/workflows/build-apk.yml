@@ -14,6 +14,16 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - name: Install
         run: npm install
+      - name: Bundle Firebase SDK inside the app (faster start)
+        run: |
+          D=node_modules/firebase
+          if [ -f $D/firebase-app-compat.js ] && [ -f $D/firebase-auth-compat.js ] && [ -f $D/firebase-firestore-compat.js ]; then
+            cp $D/firebase-app-compat.js $D/firebase-auth-compat.js $D/firebase-firestore-compat.js www/
+            sed -i 's#https://www.gstatic.com/firebasejs/10.12.2/##g' www/index.html
+            echo "Firebase bundled locally"
+          else
+            echo "Firebase files not found: using online copy"
+          fi
       - name: Push on/off flag (crash-safe)
         run: |
           sed -i '/window.PUSH_ON/d' www/firebase-config.js
