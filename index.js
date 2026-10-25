@@ -43,10 +43,10 @@ exports.onLoanUpdate = onDocumentWritten({ document: 'loanfeed/{id}', region: RE
   const before = ev.data.before && ev.data.before.exists ? ev.data.before.data() : null;
   if (before && before.status === after.status && before.amt === after.amt) return;
   const f = after;
-  const body = (f.name || ('खाते ' + f.acc)) + ' · ' + inr(f.amt) + (f.kind === 'emg' ? ' (आपत्कालीन)' : '') +
+  const body = f.body || (f.name || ('खाते ' + f.acc)) + ' · ' + inr(f.amt) + (f.kind === 'emg' ? ' (आपत्कालीन)' : '') +
     (f.status === 'approved' && f.reqAmt !== f.amt ? ' (मागितले ' + inr(f.reqAmt) + ')' : '') +
     (f.note ? ' · कारण: ' + f.note : '') + (f.status !== 'pending' && f.by ? ' · ' + f.by + ' यांनी' : '');
-  await send(LF_TITLE[f.status] || 'कर्ज अर्ज अपडेट', body, f.byUid, 'loannotify');
+  await send(f.title || LF_TITLE[f.status] || 'कर्ज अर्ज अपडेट', body, f.byUid, 'loannotify');
 });
 
 exports.onNotice = onDocumentCreated({ document: 'notices/{id}', region: REGION }, async ev => {
