@@ -14,6 +14,10 @@ jobs:
         with: { distribution: temurin, java-version: 17 }
       - name: Install
         run: npm install
+      - name: Push on/off flag (crash-safe)
+        run: |
+          sed -i '/window.PUSH_ON/d' www/firebase-config.js
+          if [ -f google-services.json ]; then echo "window.PUSH_ON = true;" >> www/firebase-config.js; echo "push ON"; else echo "window.PUSH_ON = false;" >> www/firebase-config.js; echo "push OFF (no google-services.json)"; fi
       - name: Create Android project
         run: |
           if [ ! -d android ]; then npx cap add android; fi
@@ -23,6 +27,9 @@ jobs:
           M=android/app/src/main/AndroidManifest.xml
           grep -q POST_NOTIFICATIONS $M || sed -i 's#<application#<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />\n    <application#' $M
           grep -n "POST_NOTIFICATIONS" $M
+      - name: Add Firebase push config (if google-services.json is in the repo)
+        run: |
+          if [ -f google-services.json ]; then cp google-services.json android/app/google-services.json; echo "push enabled"; else echo "google-services.json not found: push disabled"; fi
       - name: Use the fixed signing key (so updates install over the old app)
         run: |
           mkdir -p ~/.android
