@@ -130,7 +130,7 @@
   }
 
   /* backup + import (admin) */
-  var COLS = ['bank', 'loanfeed', 'members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices', 'profiles', 'ballots'], backupText = null;
+  var COLS = ['bank', 'loanfeed', 'chg', 'members', 'tx', 'invest', 'invtx', 'exp', 'perms', 'decisions', 'polls', 'votes', 'notices', 'profiles', 'ballots'], backupText = null;
   function snapshotAll() {
     var out = { _format: 'society-backup-v1' };
     var strip = function (x) { var d = Object.assign({}, x), id = d.id; delete d.id; return { id: id, data: d }; };
