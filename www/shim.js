@@ -19,6 +19,7 @@
   firebase.initializeApp(cfg);
   var auth = firebase.auth(), fs = firebase.firestore();
   fs.settings({ ignoreUndefinedProperties: true });
+  try { fs.enablePersistence({ synchronizeTabs: false }).catch(function () {}); } catch (e) {}
 
   /* Firestore cannot store arrays inside arrays (the slab table is [[min, hapta], ...]) */
   function enc(v) {
