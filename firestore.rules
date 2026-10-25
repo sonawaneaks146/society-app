@@ -59,8 +59,8 @@ service cloud.firestore {
 
     // Collections a member may be allowed to write by the admin inside the app (rights are enforced by the app)
     match /{col}/{id} {
-      allow read: if signedIn() && col in ['members', 'invest', 'invtx', 'exp', 'bank', 'polls', 'notices', 'perms', 'decisions', 'settings'];
-      allow write: if signedIn() && col in ['members', 'invest', 'invtx', 'exp', 'bank', 'polls', 'notices'];
+      allow read: if signedIn() && col in ['members', 'invest', 'invtx', 'exp', 'bank', 'chg', 'polls', 'notices', 'perms', 'decisions', 'settings'];
+      allow write: if signedIn() && col in ['members', 'invest', 'invtx', 'exp', 'bank', 'chg', 'polls', 'notices'];
     }
 
     // Admin-only writes
