@@ -25,17 +25,22 @@
       '<label for="l-id">आयडी</label><input id="l-id" data-keep type="text" autocapitalize="none" autocomplete="username" placeholder="उदा. m001">' +
       '<label for="l-pw">पासवर्ड</label><input id="l-pw" type="password" autocomplete="current-password">' + msg +
       '<button class="btn" data-act="login">लॉगिन करा</button>' +
-      '<button class="back" data-act="fg-open" style="margin-top:12px">सभासद: पासवर्ड विसरलात?</button>' +
-      '<button class="back" data-act="fg-admin" style="margin-top:4px">admin: पासवर्ड विसरलात? (ईमेलवर रीसेट)</button></div>';
+      '<button class="back" data-act="fg-open" style="margin-top:12px">पासवर्ड विसरलात?</button></div>';
   };
-  document.addEventListener('click', async function (ev) {
-    if (!ev.target.closest('[data-act=fg-admin]')) return;
+  /* one "forgot password" window: the ID typed there decides - admin gets an e-mail reset link, members go to the normal request flow */
+  async function adminReset() {
     if (ADMIN === 'admin@society.app') return toast('admin चा खरा ईमेल अजून ठरवलेला नाही. मार्गदर्शकातील “admin ईमेल सेटअप” करा.');
     var m = ADMIN.replace(/^(.).*(@.*)$/, '$1***$2');
     if (!window.confirm('admin पासवर्ड रीसेट लिंक ' + m + ' वर पाठवायची?')) return;
     try { await auth.sendPasswordResetEmail(ADMIN); toast('रीसेट लिंक ' + m + ' वर पाठवली. ईमेल (स्पॅम सह) तपासा.'); }
     catch (e) { toast((e && e.code === 'auth/network-request-failed') ? 'इंटरनेट तपासा.' : 'लिंक पाठवता आली नाही'); }
-  });
+  }
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('[data-act=fg-send]')) return;
+    var el = $('fg-id'), id = el ? el.value.trim().toLowerCase() : '';
+    if (id !== 'admin') return;
+    ev.stopImmediatePropagation(); ev.preventDefault(); adminReset();
+  }, true);
 
   window.doLogin = async function () {
     var idEl = $('l-id'), uid = idEl ? idEl.value.trim().toLowerCase() : '';
@@ -109,7 +114,7 @@
 
   /* real push notifications (work even when the app is closed): @capacitor/push-notifications + Cloud Function */
   var PN = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.PushNotifications;
-  if (PN) {
+  if (PN && window.PUSH_ON === true) {
     var pushUid = null, pushTok = null;
     var savePush = function () {
       if (!pushTok || !S.me || !S.db) return;
